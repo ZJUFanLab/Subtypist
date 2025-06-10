@@ -1,0 +1,34 @@
+# Subtypist
+
+
+# **Overview**
+
+This vignette introduces the main functions of **Subtypist**.
+
+# **Example usage**
+
+``` R
+# Load example data
+Seu <- Load('Seu.rds')
+
+# Run main function
+result <- Subtypist_merge(object=Seu,min.resolution=0.1,max.resolution=1.5,by=0.1,use.assay="RNA",cluster_assay = "RNA")
+
+# Show results
+print(str(result))
+
+# Add the result to the object
+Seu <- AddSubtypist(result$Object,result.table=result$result.table,prefix='Subtypist')
+
+```
+
+# **Additional details**
+
+```R
+# Plot the results
+Subtypist_Dimplot(object = result$Object, result.table = result$result.table, resolution = c(0.1), show = "molecular_phenotype")
+
+# Save results
+saveResults(result$result.table, path = "output", name = "subtype.csv")
+```
+
