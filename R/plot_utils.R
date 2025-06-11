@@ -1,4 +1,4 @@
-#' Title
+#' Title Dimensional Plot for Subtypist Results
 #'
 #' @param object A Seurat object.
 #' @param result.table A data frame containing annotation results.

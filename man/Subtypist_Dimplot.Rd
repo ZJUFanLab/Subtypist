@@ -2,7 +2,7 @@
 % Please edit documentation in R/plot_utils.R
 \name{Subtypist_Dimplot}
 \alias{Subtypist_Dimplot}
-\title{Title}
+\title{Title Dimensional Plot for Subtypist Results}
 \usage{
 Subtypist_Dimplot(
   object = NULL,
@@ -26,7 +26,8 @@ Subtypist_Dimplot(
   raster.dpi = c(512, 512),
   prefix = "Subtypist",
   suffix = NULL,
-  select_index = NULL
+  select_index = NULL,
+  meta.prefix = "phenotypic molecules_"
 )
 }
 \arguments{
@@ -78,7 +79,7 @@ Subtypist_Dimplot(
 A ggplot2 object.
 }
 \description{
-Title
+Title Dimensional Plot for Subtypist Results
 }
 \examples{
 Subtypist_Dimplot(object = res[[1]], result.table = res[[2]], resolution = c(0.1), show = "molecular_phenotype")

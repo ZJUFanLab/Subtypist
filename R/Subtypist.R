@@ -1,6 +1,6 @@
 #' @importFrom dplyr %>%
 NULL
-#' Title
+#' Title Reference-free identification for subtypes
 #'
 #' @param object a Seurat object
 #' @param min.resolution the minimum value of resolution
@@ -284,7 +284,7 @@ AddSubtypist <- function(object=NULL,resolution=NULL,result.table=NULL,result.li
 }
 
 
-#' Title
+#' Title Save Subtypist annotation results to disk
 #'
 #' @param result.table results A data.frame or tibble containing scSubAnn results.
 #' @param path Directory path to save the file.

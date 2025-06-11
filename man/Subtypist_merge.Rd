@@ -2,7 +2,7 @@
 % Please edit documentation in R/Subtypist.R
 \name{Subtypist_merge}
 \alias{Subtypist_merge}
-\title{Title}
+\title{Title Reference-free identification for subtypes}
 \usage{
 Subtypist_merge(
   object,
@@ -49,7 +49,7 @@ Subtypist_merge(
 list of objects and merged results
 }
 \description{
-Title
+Title Reference-free identification for subtypes
 }
 \examples{
 Subtypist_merge(object=Seu,min.resolution=0.1,max.resolution=0.2,by=0.1,use.assay="RNA",cluster_assay = "RNA")

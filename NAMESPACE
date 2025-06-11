@@ -3,6 +3,7 @@
 export(AddSubtypist)
 export(Subtypist_Dimplot)
 export(Subtypist_merge)
+export(getSpecificity_score)
 export(saveResults)
 export(sortScore)
 importFrom(dplyr,"%>%")

@@ -1,5 +1,7 @@
 
 # Subtypist
+
+
 ![R >= 4.0](https://img.shields.io/badge/R-%3E=4.0-blue)
 
 #### **Reference-free identification of cell subtypes for single-cell transcriptomic data**
@@ -69,7 +71,23 @@ $result.table
 10        1.1             4             4,7 Gene807, Gene801, Gene566 0.0000000
 11        1.1             5               6 Gene776, Gene507, Gene323 2.9614237
 
-> # Add the result to the object
+```
+
+3. **Evaluating clustering resolutions and annotating subtypes with specific phenotypic markers**
+
+```R
+# To evaluate and rank clustering resolutions based on their corresponding subtype identification results.
+> sortScore(result$result.table) ## resolution = 0.4: highest 
+# A tibble: 5 × 2
+  resolution value
+       <dbl> <dbl>
+1        0.1  1.62
+2        0.2  1.85
+3        0.4  2.51
+4        1.1  1.95
+5        1.2  1.81
+
+> # Add the result to the object 
 > Seu <- AddSubtypist(result$Object,result.table=result$result.table,prefix='Subtypist')
 > # To assign more specific phenotypic molecules to each subtype, 
 > # the `select_index` parameter can be used to specify which gene to select 

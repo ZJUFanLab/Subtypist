@@ -2,7 +2,7 @@
 % Please edit documentation in R/Subtypist.R
 \name{saveResults}
 \alias{saveResults}
-\title{Title}
+\title{Title Save Subtypist annotation results to disk}
 \usage{
 saveResults(result.table, path, name)
 }
@@ -17,7 +17,7 @@ saveResults(result.table, path, name)
 The processed results (invisibly).
 }
 \description{
-Title
+Title Save Subtypist annotation results to disk
 }
 \examples{
 saveResults(res[[2]], path = "output", name = "subtype.csv")

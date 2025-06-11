@@ -1,11 +1,11 @@
 # Subtypist
-# **Example usage**
+
 
 ![R >= 4.0](https://img.shields.io/badge/R-%3E=4.0-blue)
 
 #### **Reference-free identification of cell subtypes for single-cell transcriptomic data**
 
-![curation](https://github.com/ZJUFanLab/Subtypist/blob/main/img/curation.png)
+![curation](https://github.com/ZJUFanLab/Subtypist/blob/master/img/curation.png)
 
 Identification of novel cell subtypes is critically crucial in revealing the pathogenesis and heterogeneity of disease, which provides unprecedented insights into the development of therapeutic strategies. Although numerous cell-type identification methods exist, these methods heavily rely on the reference with the fixed cell labels, which fail to uncover new cell subtypes marked with phenotypic molecules within a specific disease context. To fill this gap, we propose a pioneering reference-free annotation method, Subtypist, to identify disease-associated cell subtypes expressing phenotypic features using an ensemble-based strategy. The benchmarking evaluation on both simulated and real datasets demonstrates its accuracy and robustness. Subtypist was further applied to several disease scenarios, revealing several novel subtypes associated with the pathogenesis of hepatocellular carcinoma, esophageal squamous cell carcinoma, and myocardial infarction. In summary, Subtypist enables the reference-free identification of biologically meaningful cell subtypes, providing a valuable tool for understanding the cellular mechanisms underlying disease pathogenesis and heterogeneity.
 
@@ -70,7 +70,23 @@ $result.table
 10        1.1             4             4,7 Gene807, Gene801, Gene566 0.0000000
 11        1.1             5               6 Gene776, Gene507, Gene323 2.9614237
 
-> # Add the result to the object
+```
+
+3. **Evaluating clustering resolutions and annotating subtypes with specific phenotypic markers**
+
+```R
+# To evaluate and rank clustering resolutions based on their corresponding subtype identification results.
+> sortScore(result$result.table) ## resolution = 0.4: highest 
+# A tibble: 5 × 2
+  resolution value
+       <dbl> <dbl>
+1        0.1  1.62
+2        0.2  1.85
+3        0.4  2.51
+4        1.1  1.95
+5        1.2  1.81
+
+> # Add the result to the object 
 > Seu <- AddSubtypist(result$Object,result.table=result$result.table,prefix='Subtypist')
 > # To assign more specific phenotypic molecules to each subtype, 
 > # the `select_index` parameter can be used to specify which gene to select 

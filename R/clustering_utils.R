@@ -180,7 +180,16 @@
   #clu$resolution <- map(clu$resolution,list)
   return(clu)
 }
-
+#' Title Calculation of specificity score
+#'
+#' @param markers_top marker genes per cluster.
+#' @param min.pct.1 Minimum percent of cells expressing the gene in the cluster.
+#' @param min.diff Minimum difference in expression percent between clusters.
+#' @param min.avg_log2FC Minimum average log2 fold change for marker selection.
+#'
+#' @return return a specificity score
+#' @export
+#'
 getSpecificity_score <- function(markers_top,min.pct.1=0.1,min.diff=0,min.avg_log2FC=0.5){ # pct.1 findMarkers(min.pct),
   b <- max(min.diff,0.5)
   x1 <- markers_top$pct.1 - markers_top$pct.2
