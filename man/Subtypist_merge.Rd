@@ -29,6 +29,8 @@ Subtypist_merge(
 
 \item{by}{increment of the sequence.}
 
+\item{max.steps}{maximum steps of traversal}
+
 \item{use.assay}{Name of assay to use}
 
 \item{n.top}{the number of top genes}

@@ -12,7 +12,8 @@ AddSubtypist(
   prefix = "Subtypist",
   suffix = NULL,
   select_index = NULL,
-  ...
+  meta.prefix = "molecular_phenotype_",
+  value.suffix = NULL
 )
 }
 \arguments{
@@ -29,6 +30,10 @@ AddSubtypist(
 \item{suffix}{A character suffix to append to the new annotation column names}
 
 \item{select_index}{A named integer vector specifying which phenotype to select for each class (merge_cluster). Names should match cluster IDs in the \code{merge_cluster} column of the result table.}
+
+\item{meta.prefix}{The prefix used for new column names added to the metadata.}
+
+\item{value.suffix=}{The suffix used for added to the new columns}
 }
 \value{
 A Seurat object with new metadata columns for Subtypist annotations.

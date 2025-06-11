@@ -6,7 +6,7 @@ NULL
 #' @param min.resolution the minimum value of resolution
 #' @param max.resolution the maximum value of resolution
 #' @param by increment of the sequence.
-#' @param max.steps
+#' @param max.steps maximum steps of traversal
 #' @param use.assay Name of assay to use
 #' @param cluster.assay Name of the assay in the Seurat object to use for clustering
 #' @param n.top the number of top genes
@@ -100,13 +100,13 @@ Subtypist_merge <- function(object,
         Allmarkers_top <- all.markers.RNA %>% dplyr::group_by(cluster) %>%  dplyr::top_n(n=n.top,wt=avg_log2FC)
         Allmarkers_top$cluster <- as.numeric(levels(Allmarkers_top$cluster))[Allmarkers_top$cluster]
         # Distance Matrix
-        M <- getInitWeightedJaccardMatrix(clusterNum,Allmarkers_top)
+        M <- .getInitWeightedJaccardMatrix(clusterNum,Allmarkers_top)
         # markers with specificial score and tmp
         resMarker <- tibble::tibble()
         for(cluster in 0:(clusterNum-1)){
           cluster_top_with_score <- getSpecificity_score(Allmarkers_top[Allmarkers_top$cluster==cluster,],min.pct.1= min.pct.1,min.diff = 0.4)# ,min.gap =
           resMarker <- rbind(resMarker,cluster_top_with_score)
-          tmp[cluster + 1] <- check_standard(cluster_top_with_score)
+          tmp[cluster + 1] <- .check_standard(cluster_top_with_score)
         }
         selected.merge.times <- 0
         mergedNodes <- list()
@@ -133,7 +133,7 @@ Subtypist_merge <- function(object,
 
       # Find the two clusters that need to be merged
       # Control that the maximum number of merges for clusters containing False is always less than the maximum number of merges for the entire data
-      IndexRes <- Find_max_below_threshold(M,1e9)
+      IndexRes <- .Find_max_below_threshold(M,1e9)
       firstMax <- IndexRes[[1]]
       Index.min <- IndexRes[[2]]
       Index.max <- IndexRes[[3]]
@@ -151,7 +151,7 @@ Subtypist_merge <- function(object,
       cluster.max <- Index.max - 1
       # It's time to merge
       # Update the SeuratObject column
-      obj2 <- updateSeuratObj(obj=obj2,column = Newcolumn,combined.min=cluster.min,combined.max=cluster.max,clusterNum=clusterNum)
+      obj2 <- .updateSeuratObj(obj=obj2,column = Newcolumn,combined.min=cluster.min,combined.max=cluster.max,clusterNum=clusterNum)
       # Update thr MarkersList
       Seurat::Idents(obj2) <- Newcolumn
       newCluster_marker <- Seurat::FindMarkers(obj2, ident.1 = cluster.min, ident.2 = NULL,only.pos=T,min.pct=0,verbose = FALSE,logfc.threshold=0)
@@ -161,18 +161,18 @@ Subtypist_merge <- function(object,
       newMarkers_top$gene <- rownames(newMarkers_top)
       resMarker <- updateMarkerlist(resMarker,combined.min=cluster.min,combined.max=cluster.max,newMarkers_top,clusterNum) # newMarkers_top with cluster
       # Update the condition list
-      tmp <- updateState(tmp,Index.min,Index.max,resMarker[resMarker$cluster==cluster.min,])
+      tmp <- .updateState(tmp,Index.min,Index.max,resMarker[resMarker$cluster==cluster.min,])
       # Update DistanceMatrix
-      M <- updateDistanceMatrix(M=M,Index.min=Index.min,Index.max=Index.max,resMarker=resMarker,clusterNum=clusterNum,operation=getWeightedJaccard)
+      M <- .updateDistanceMatrix(M=M,Index.min=Index.min,Index.max=Index.max,resMarker=resMarker,clusterNum=clusterNum,operation=.getWeightedJaccard)
       # Update the merged list
-      mergedNodes <- mergeSteps(mergedNodes,combined.min=Index.min,combined.max=Index.max)
+      mergedNodes <- .mergeSteps(mergedNodes,combined.min=Index.min,combined.max=Index.max)
       # do it for everysteps
       steps = steps + 1
       clusterNum = clusterNum - 1
     }
 
     # printSteps(mergedNodes,column)
-    clu <- setClulterInf(resMarker,mergedNodes,i.resolution)
+    clu <- .setClulterInf(resMarker,mergedNodes,i.resolution)
     results <- rbind(results,clu)
   }
   reslist <- list(obj2,results)
@@ -204,6 +204,8 @@ sortScore <- function(result.table,.f=mean){
 #' @param prefix Prefix for new metadata columns. Default is `"Subtypist"`.
 #' @param suffix A character suffix to append to the new annotation column names
 #' @param select_index A named integer vector specifying which phenotype to select for each class (merge_cluster). Names should match cluster IDs in the `merge_cluster` column of the result table.
+#' @param meta.prefix The prefix used for new column names added to the metadata.
+#' @param value.suffix= The suffix used for added to the new columns
 #'
 #' @return A Seurat object with new metadata columns for Subtypist annotations.
 #' @export
@@ -212,7 +214,7 @@ sortScore <- function(result.table,.f=mean){
 #' library(Seurat)
 #' res.table = tibble::tibble(resolution =c(0.1,0.1,0.1),merge_cluster = c(0,1,2),initial_cluster = c(0,1,2),molecular_phenotype = c('G1','G2','G3'),Score = c(1,2,4))
 #' object <- AddSubtypist(object =res[[1]],result.table=res.table,resolution = c(0.1))
-AddSubtypist <- function(object=NULL,resolution=NULL,result.table=NULL,result.list=NULL,prefix='Subtypist',suffix = NULL,select_index = NULL,...){
+AddSubtypist <- function(object=NULL,resolution=NULL,result.table=NULL,result.list=NULL,prefix='Subtypist',suffix = NULL,select_index = NULL,meta.prefix='molecular_phenotype_',value.suffix=NULL){
   if(!is.null(result.list)){
     object <- result.list[['Object']]
     result.table <- result.list[['result.table']]
@@ -230,6 +232,7 @@ AddSubtypist <- function(object=NULL,resolution=NULL,result.table=NULL,result.li
   }
   result <- result.table[c('resolution','merge_cluster','molecular_phenotype')]
   result$resolution = as.character(result$resolution)
+  result <- result[result$resolution %in% as.character(resolution),]
   # If select_index is provided, select the specified molecular phenotype.
   if (!is.null(select_index)) { # Exclude quantity mismatches
     if (length(resolution) != 1) {
@@ -253,7 +256,9 @@ AddSubtypist <- function(object=NULL,resolution=NULL,result.table=NULL,result.li
       result$molecular_phenotype <- purrr::map_chr(result$molecular_phenotype, ~paste(.x, collapse = " / "))
     }
   }
-
+  if (!is.null(value.suffix)){
+    result$molecular_phenotype <- paste0(result$molecular_phenotype,value.suffix)
+  }
   Addmeta <- lapply(
     X = resolution,
     FUN = function(x){
@@ -269,7 +274,7 @@ AddSubtypist <- function(object=NULL,resolution=NULL,result.table=NULL,result.li
       }
       resmeta <- dplyr::left_join(resmeta,resMarkersTable,by=c(Selected_resolution_Column='merge_cluster'))
       resmeta <- resmeta[c("molecular_phenotype")]
-      colnames(resmeta) <- paste0("Molecular_phenotype_", x)
+      colnames(resmeta) <- paste0(meta.prefix, x)
       return(resmeta)
     }
   )

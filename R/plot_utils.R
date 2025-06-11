@@ -32,7 +32,7 @@ Subtypist_Dimplot <- function(object=NULL,result.table=NULL,results.list=NULL,
                                 label = FALSE,label.size = 4,label.color = 'black',
                                 label.box = FALSE,repel = FALSE,cells.highlight = NULL,
                                 cols.highlight = '#DE2D26',sizes.highlight = 1,na.value = 'grey50',
-                                ncol = NULL,combine = TRUE,raster = NULL,raster.dpi = c(512, 512),prefix='Subtypist',suffix=NULL,select_index= NULL){
+                                ncol = NULL,combine = TRUE,raster = NULL,raster.dpi = c(512, 512),prefix='Subtypist',suffix=NULL,select_index= NULL,meta.prefix='phenotypic molecules_'){
   if(!is.null(results.list)){
     object <- results.list[['Object']]
     result.table <- results.list[['result.table']]
@@ -106,7 +106,7 @@ Subtypist_Dimplot <- function(object=NULL,result.table=NULL,results.list=NULL,
     if(is.list(result.table$molecular_phenotype)){
       result.table$molecular_phenotype <- purrr::map_chr(result.table$molecular_phenotype,.f=~paste(.x, collapse = "/"))
     }
-    molecular_phenotype.name <- lapply(X=resolution,FUN=function(x){return(paste0("Molecular_phenotype_",x))})
+    molecular_phenotype.name <- lapply(X=resolution,FUN=function(x){return(paste0(meta.prefix,x))})
     Addmeta <- lapply(X=resolution,FUN=function(x){
       resmeta <- object@meta.data
       if(!paste0("Molecular_phenotype_",x) %in% colnames(object) & !is.null(result.table) & x %in% result.table$resolution){
