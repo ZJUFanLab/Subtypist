@@ -16,7 +16,7 @@ inst/doc
 # renv/library/
 # renv/python/
 # renv/staging/
-renv.lock
+# renv.lock
 
 # 忽略编译生成的文档等临时文件
 *.o

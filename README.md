@@ -1,17 +1,11 @@
 # Subtypist
-
-
-# **Overview**
-
-This vignette introduces the main functions of **Subtypist**.
-
 # **Example usage**
 
 ![R >= 4.0](https://img.shields.io/badge/R-%3E=4.0-blue)
 
 #### **Reference-free identification of cell subtypes for single-cell transcriptomic data**
 
-![curation](https://github.com/ZJUFanLab/Subtypist/blob/master/img/curation.png)
+![curation](https://github.com/ZJUFanLab/Subtypist/blob/main/img/curation.png)
 
 Identification of novel cell subtypes is critically crucial in revealing the pathogenesis and heterogeneity of disease, which provides unprecedented insights into the development of therapeutic strategies. Although numerous cell-type identification methods exist, these methods heavily rely on the reference with the fixed cell labels, which fail to uncover new cell subtypes marked with phenotypic molecules within a specific disease context. To fill this gap, we propose a pioneering reference-free annotation method, Subtypist, to identify disease-associated cell subtypes expressing phenotypic features using an ensemble-based strategy. The benchmarking evaluation on both simulated and real datasets demonstrates its accuracy and robustness. Subtypist was further applied to several disease scenarios, revealing several novel subtypes associated with the pathogenesis of hepatocellular carcinoma, esophageal squamous cell carcinoma, and myocardial infarction. In summary, Subtypist enables the reference-free identification of biologically meaningful cell subtypes, providing a valuable tool for understanding the cellular mechanisms underlying disease pathogenesis and heterogeneity.
 
