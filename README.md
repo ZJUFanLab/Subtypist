@@ -7,9 +7,6 @@ This vignette introduces the main functions of **Subtypist**.
 
 # **Example usage**
 
-``` R
-
-
 ![R >= 4.0](https://img.shields.io/badge/R-%3E=4.0-blue)
 
 #### **Reference-free identification of cell subtypes for single-cell transcriptomic data**
