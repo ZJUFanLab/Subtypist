@@ -50,8 +50,6 @@ Subtypist_merge <- function(object,
     }
     INF = 1e9
     obj2 <- object
-    obj2@active.assay <- use.assay
-
     if(use.assay == "SCT"){
       obj2 <- Seurat::PrepSCTFindMarkers(object=obj2,verbose=FALSE)
     }
@@ -93,7 +91,7 @@ Subtypist_merge <- function(object,
           markers.list <- list()
           all.markers.RNA <- tibble::tibble()
           for(i.ident in 1:length(idents.all)){
-            i.markers <- Seurat::FindMarkers(obj2,ident.1=idents.all[i.ident],only.pos=T,min.pct=min.pct.1,assay=use.assay,verbose = FALSE,logfc.threshold=logfc.threshold) # other parameter logfc.threshold
+            i.markers <- Seurat::FindMarkers(obj2,ident.1=idents.all[i.ident],only.pos=T,min.pct=min.pct.1,verbose = FALSE,logfc.threshold=logfc.threshold) # other parameter logfc.threshold
             i.markers <- i.markers %>%
               dplyr::filter(p_val_adj < 0.05)
             i.markers$cluster <- idents.all[i.ident]
@@ -195,7 +193,6 @@ Subtypist_merge <- function(object,
     }
     INF = 1e9
     obj2 <- object
-    obj2@active.assay <- use.assay
 
     #    if(use.assay == "SCT"){
     #      obj2 <- Seurat::PrepSCTFindMarkers(object=obj2,verbose=FALSE)
@@ -238,7 +235,7 @@ Subtypist_merge <- function(object,
           # Before FindMarkers function
           if(accelerated == TRUE){
             obj_join_layers <- JoinLayers(obj2)
-            all.markers.RNA <-  presto::wilcoxauc(X = obj_join_layers,group.by = Newcolumn,assay = use.assay,verbose = FALSE)
+            all.markers.RNA <-  presto::wilcoxauc(X = obj_join_layers,group.by = Newcolumn,verbose = FALSE)
             all.markers.RNA <- all.markers.RNA %>%
               dplyr::filter(
                 logFC >= logfc.threshold,
