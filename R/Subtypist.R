@@ -238,7 +238,7 @@ Subtypist_merge <- function(object,
           # Before FindMarkers function
           if(accelerated == TRUE){
             obj_join_layers <- JoinLayers(obj2)
-            all.markers.RNA <-  presto::wilcoxauc(X = obj_join_layers,group.by = Newcolumn,assay = assay_use,verbose = FALSE)
+            all.markers.RNA <-  presto::wilcoxauc(X = obj_join_layers,group.by = Newcolumn,assay = use.assay,verbose = FALSE)
             all.markers.RNA <- all.markers.RNA %>%
               dplyr::filter(
                 logFC >= logfc.threshold,
@@ -316,7 +316,7 @@ Subtypist_merge <- function(object,
         Seurat::Idents(obj2) <- Newcolumn
         if(accelerated == TRUE){
           obj_join_layers <- JoinLayers(obj2)
-          all.markers.RNA <-  presto::wilcoxauc(X = obj_join_layers,group.by = Newcolumn,assay = assay_use,verbose = FALSE)
+          all.markers.RNA <-  presto::wilcoxauc(X = obj_join_layers,group.by = Newcolumn,assay = use.assay,verbose = FALSE)
           all.markers.RNA <- all.markers.RNA %>%
             dplyr::filter(
               logFC >= logfc.threshold,
