@@ -207,7 +207,7 @@ Subtypist_merge <- function(object,
     # Traverse different resolutions
     resolution.list <- c()
     for(i.resolution in seq(min.resolution,max.resolution,by=by)){
-      Seurat::DefaultAssay(obj2) <- cluster_assay
+      # Seurat::DefaultAssay(obj2) <- cluster_assay # FindNeighbor 去批次的基础上run
       obj2 <- Seurat::FindClusters(object = obj2, resolution = i.resolution,verbose=FALSE)
       column <- paste(obj2@active.assay,"_snn_res.",as.character(i.resolution),sep="")
       Newcolumn <- paste(prefix,"snn_res.",as.character(i.resolution),sep="")
