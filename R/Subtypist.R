@@ -14,170 +14,346 @@ NULL
 #' @param min.diff the minimum difference between pct.1 and pct.2
 #' @param logfc.threshold the threshold of the log2 Flod Change
 #' @param prefix String prefix for naming metadata columns. Each column name will be constructed as "<prefix>.snn_res.<resolution>"
+#' @param accelerated Whether to enable accelerated mode. Default is FALSE.
 #'
 #' @return list of objects and merged results
 #' @export
 #'
 #' @examples Subtypist_merge(object=Seu,min.resolution=0.1,max.resolution=0.2,by=0.1,use.assay="RNA",cluster_assay = "RNA")
 Subtypist_merge <- function(object,
-                             min.resolution=0.3,
-                             max.resolution=1.5,
-                             by=0.1,
-                             max.steps = 100,
-                             use.assay="RNA",
-                             cluster_assay = "integrated",
-                             n.top=500,
-                             min.pct.1=0.1,
-                             min.diff=0.1,
-                             min.avg_log2FC=0.5,
-                             logfc.threshold = 0.1,
-                             prefix = 'Subtypist')
+                            min.resolution=0.3,
+                            max.resolution=1.5,
+                            by=0.1,
+                            max.steps = 100,
+                            use.assay="RNA",
+                            cluster_assay = "integrated",
+                            n.top=500,
+                            min.pct.1=0.1,
+                            min.diff=0.1,
+                            min.avg_log2FC=0.5,
+                            logfc.threshold = 0.1,
+                            prefix = 'Subtypist',
+                            accelerated = FALSE)
 {
-  if(!(is(object, "Seurat") || is(object, "SeuratObject"))){
-    stop("Error: Please input a Seurat or SeuratObject!")
-  }
-  if(is.null(object@graphs)) {
-    stop("Error: Before running FindClusters, you need to compute the neighborhood graph using the FindNeighbors function. FindNeighbors builds the neighborhood graph, such as the k-nearest neighbors (KNN) graph, which is essential for cluster identification. Please run FindNeighbors with your data first to create the required neighborhood graph.")
-  }
-  if(!length(object@assays[[object@active.assay]]@scale.data)){
-    stop("Error: Please provide a Seurat object with scaled data. Make sure you have already performed data scaling before using this function.")
-  }
-  if(!use.assay %in% names(object@assays)){
-    stop("Error: The assay you selected is not in the Object! ")
-  }
-  INF = 1e9
-  obj2 <- object
-  obj2@active.assay <- use.assay
+  if(substr(packageVersion('Seurat'),1,1) == '4'){
+    if(!(is(object, "Seurat") || is(object, "SeuratObject"))){
+      stop("Error: Please input a Seurat or SeuratObject!")
+    }
+    if(is.null(object@graphs)) {
+      stop("Error: Before running FindClusters, you need to compute the neighborhood graph using the FindNeighbors function. FindNeighbors builds the neighborhood graph, such as the k-nearest neighbors (KNN) graph, which is essential for cluster identification. Please run FindNeighbors with your data first to create the required neighborhood graph.")
+    }
+    if(!length(object@assays[[object@active.assay]]@scale.data)){ # V4
+      stop("Error: Please provide a Seurat object with scaled data. Make sure you have already performed data scaling before using this function.")
+    }
+    if(!use.assay %in% names(object@assays)){
+      stop("Error: The assay you selected is not in the Object! ")
+    }
+    INF = 1e9
+    obj2 <- object
+    obj2@active.assay <- use.assay
 
-  if(use.assay == "SCT"){
-    obj2 <- Seurat::PrepSCTFindMarkers(object=obj2,verbose=FALSE)
-  }
-  # Global parameters for each function call
-  clustertmp <- rep(FALSE,100)
-  results <- tibble::tibble()
-  mergedNodeslist <- list()
-  # Traverse different resolutions
-  resolution.list <- c()
-  for(i.resolution in seq(min.resolution,max.resolution,by=by)){
-    Seurat::DefaultAssay(obj2) <- cluster_assay
-    obj2 <- Seurat::FindClusters(object = obj2, resolution = i.resolution,verbose=FALSE)
-    column <- paste(obj2@active.assay,"_snn_res.",as.character(i.resolution),sep="")
-    Newcolumn <- paste(prefix,"snn_res.",as.character(i.resolution),sep="")
-    clusterNum <- length(unique(obj2@meta.data[[column]]))
-    if(clustertmp[clusterNum]){
-      # results[unlist(map(results$resolution, ~identical(.,last.resolution))),]$resolution <- map(results[unlist(map(results$resolution, ~identical(.,last.resolution))),]$resolution,~c(.,i.resolution))
-      # clu$resolution <- i.resolution
-      # results <- rbind(results,clu)
+    if(use.assay == "SCT"){
+      obj2 <- Seurat::PrepSCTFindMarkers(object=obj2,verbose=FALSE)
+    }
+    # Global parameters for each function call
+    clustertmp <- rep(FALSE,100)
+    results <- tibble::tibble()
+    mergedNodeslist <- list()
+    # Traverse different resolutions
+    resolution.list <- c()
+    for(i.resolution in seq(min.resolution,max.resolution,by=by)){
+      Seurat::DefaultAssay(obj2) <- cluster_assay
+      obj2 <- Seurat::FindClusters(object = obj2, resolution = i.resolution,verbose=FALSE)
+      column <- paste(obj2@active.assay,"_snn_res.",as.character(i.resolution),sep="")
+      Newcolumn <- paste(prefix,"snn_res.",as.character(i.resolution),sep="")
+      clusterNum <- length(unique(obj2@meta.data[[column]]))
+      if(clustertmp[clusterNum]){
+        # results[unlist(map(results$resolution, ~identical(.,last.resolution))),]$resolution <- map(results[unlist(map(results$resolution, ~identical(.,last.resolution))),]$resolution,~c(.,i.resolution))
+        # clu$resolution <- i.resolution
+        # results <- rbind(results,clu)
+        last.resolution = c(last.resolution,i.resolution)
+        next # The number of clusters corresponding to this resolution has already appeared, omitting this merging process
+      }
+      last.resolution = list()
       last.resolution = c(last.resolution,i.resolution)
-      next # The number of clusters corresponding to this resolution has already appeared, omitting this merging process
-    }
-    last.resolution = list()
-    last.resolution = c(last.resolution,i.resolution)
-    resolution.list <- c(resolution.list,i.resolution)
+      resolution.list <- c(resolution.list,i.resolution)
 
-    cat("Now caculate the resolution: ",i.resolution,"\nThere are",clusterNum,"subclusters at this resolution.","\nThe results will be saved in ->",Newcolumn,"\n")
-    clustertmp[clusterNum] <- TRUE
-    tmp <- rep(FALSE,clusterNum)
-    steps = 0
-    init.false <- length(tmp) - sum(tmp)
-    while(TRUE){
+      cat("Now caculate the resolution: ",i.resolution,"\nThere are",clusterNum,"subclusters at this resolution.","\nThe results will be saved in ->",Newcolumn,"\n")
+      clustertmp[clusterNum] <- TRUE
+      tmp <- rep(FALSE,clusterNum)
+      steps = 0
+      while(TRUE){
 
-      if(steps == 0){
-        # obj2[[Newcolumn]] <- obj2[[column]]
-        obj2@meta.data[[Newcolumn]] <- as.numeric(levels(obj2@meta.data[[column]]))[obj2@meta.data[[column]]]
+        if(steps == 0){
+          # obj2[[Newcolumn]] <- obj2[[column]]
+          obj2@meta.data[[Newcolumn]] <- as.numeric(levels(obj2@meta.data[[column]]))[obj2@meta.data[[column]]]
+          Seurat::Idents(obj2) <- Newcolumn
+          Seurat::DefaultAssay(obj2) <- use.assay
+          idents.all <- sort(x = unique(x = Seurat::Idents(object = obj2)))
+          markers.list <- list()
+          all.markers.RNA <- tibble::tibble()
+          for(i.ident in 1:length(idents.all)){
+            i.markers <- Seurat::FindMarkers(obj2,ident.1=idents.all[i.ident],only.pos=T,min.pct=min.pct.1,assay=use.assay,verbose = FALSE,logfc.threshold=logfc.threshold) # other parameter logfc.threshold
+            i.markers <- i.markers %>%
+              dplyr::filter(p_val_adj < 0.05)
+            i.markers$cluster <- idents.all[i.ident]
+            i.markers$gene <- rownames(i.markers)
+            all.markers.RNA <- rbind(all.markers.RNA,i.markers)
+          }
+          # all.markers.RNA$gene <- rownames(all.markers.RNA)
+          Allmarkers_top <- all.markers.RNA %>% dplyr::group_by(cluster) %>%  dplyr::top_n(n=n.top,wt=avg_log2FC)
+          Allmarkers_top$cluster <- as.numeric(levels(Allmarkers_top$cluster))[Allmarkers_top$cluster]
+          # Distance Matrix
+          M <- .getInitWeightedJaccardMatrix(clusterNum,Allmarkers_top)
+          # markers with specificial score and tmp
+          resMarker <- tibble::tibble()
+          for(cluster in 0:(clusterNum-1)){
+            cluster_top_with_score <- getSpecificity_score(Allmarkers_top[Allmarkers_top$cluster==cluster,],min.pct.1= min.pct.1,min.diff = 0.4)# ,min.gap =
+            resMarker <- rbind(resMarker,cluster_top_with_score)
+            tmp[cluster + 1] <- .check_standard(cluster_top_with_score)
+          }
+          mergedNodes <- list()
+          for(i in 1:clusterNum){
+            mergedNodes[[i]] <- list(i)
+          }
+        }
+
+
+        if(sum(tmp)==clusterNum){
+          cat("GOOD! get the prefect results!\n")
+          break
+        }else if(steps==max.steps){
+          cat("Reach the max of steps!\n")
+          break}
+        max.col <- apply(M,2,max)
+        # Find the two clusters that need to be merged
+        # Control that the maximum number of merges for clusters containing False is always less than the maximum number of merges for the entire data
+
+        if(sum(tmp) != clusterNum & sum(tmp)!=0 & min(max.col[tmp]) >= max(max.col[!tmp])){
+          break
+        }
+
+        # Find the two clusters that need to be merged
+        # Control that the maximum number of merges for clusters containing False is always less than the maximum number of merges for the entire data
+        IndexRes <- .Find_max_below_threshold(M,1e9)
+        firstMax <- IndexRes[[1]]
+        Index.min <- IndexRes[[2]]
+        Index.max <- IndexRes[[3]]
+        # find the Max of the merging times
+        merged.max = max(unlist(purrr::map(mergedNodes,.f=length)))
+        tmpMax <- firstMax
+
+        if(tmp[Index.min]==FALSE | tmp[Index.max]==FALSE){
+          if((purrr::map(mergedNodes,.f=length)[[Index.min]] > merged.max & tmp[[Index.min]]==FALSE)
+             |(purrr::map(mergedNodes,.f=length)[[Index.max]] > merged.max & tmp[Index.min]==FALSE)
+             | merged.max > length(unique(obj2@meta.data[[column]]))/2){break}
+        }
+
+        cluster.min <- Index.min - 1
+        cluster.max <- Index.max - 1
+        # It's time to merge
+        # Update the SeuratObject column
+        obj2 <- .updateSeuratObj(obj=obj2,column = Newcolumn,combined.min=cluster.min,combined.max=cluster.max,clusterNum=clusterNum)
+        # Update thr MarkersList
         Seurat::Idents(obj2) <- Newcolumn
-        Seurat::DefaultAssay(obj2) <- use.assay
-        idents.all <- sort(x = unique(x = Seurat::Idents(object = obj2)))
-        markers.list <- list()
-        all.markers.RNA <- tibble::tibble()
-        for(i.ident in 1:length(idents.all)){
-          i.markers <- Seurat::FindMarkers(obj2,ident.1=idents.all[i.ident],only.pos=T,min.pct=min.pct.1,assay=use.assay,verbose = FALSE,logfc.threshold=logfc.threshold) # other parameter logfc.threshold
-          i.markers$cluster <- idents.all[i.ident]
-          i.markers$gene <- rownames(i.markers)
-          all.markers.RNA <- rbind(all.markers.RNA,i.markers)
-        }
-        # all.markers.RNA$gene <- rownames(all.markers.RNA)
-        Allmarkers_top <- all.markers.RNA %>% dplyr::group_by(cluster) %>%  dplyr::top_n(n=n.top,wt=avg_log2FC)
-        Allmarkers_top$cluster <- as.numeric(levels(Allmarkers_top$cluster))[Allmarkers_top$cluster]
-        # Distance Matrix
-        M <- .getInitWeightedJaccardMatrix(clusterNum,Allmarkers_top)
-        # markers with specificial score and tmp
-        resMarker <- tibble::tibble()
-        for(cluster in 0:(clusterNum-1)){
-          cluster_top_with_score <- getSpecificity_score(Allmarkers_top[Allmarkers_top$cluster==cluster,],min.pct.1= min.pct.1,min.diff = 0.4)# ,min.gap =
-          resMarker <- rbind(resMarker,cluster_top_with_score)
-          tmp[cluster + 1] <- .check_standard(cluster_top_with_score)
-        }
-        selected.merge.times <- 0
-        mergedNodes <- list()
-        for(i in 1:clusterNum){
-          mergedNodes[[i]] <- list(i)
-        }
+        newCluster_marker <- Seurat::FindMarkers(obj2, ident.1 = cluster.min, ident.2 = NULL,only.pos=T,min.pct=0,verbose = FALSE,logfc.threshold=0)
+        newMarkers_top <- newCluster_marker %>% dplyr::top_n(n=n.top,wt=avg_log2FC)
+        newMarkers_top <- getSpecificity_score(newMarkers_top,min.pct.1= min.pct.1,min.diff=min.diff)
+
+        newMarkers_top$gene <- rownames(newMarkers_top)
+        resMarker <- updateMarkerlist(resMarker,combined.min=cluster.min,combined.max=cluster.max,newMarkers_top,clusterNum) # newMarkers_top with cluster
+        # Update the condition list
+        tmp <- .updateState(tmp,Index.min,Index.max,resMarker[resMarker$cluster==cluster.min,])
+        # Update DistanceMatrix
+        M <- .updateDistanceMatrix(M=M,Index.min=Index.min,Index.max=Index.max,resMarker=resMarker,clusterNum=clusterNum,operation=.getWeightedJaccard)
+        # Update the merged list
+        mergedNodes <- .mergeSteps(mergedNodes,combined.min=Index.min,combined.max=Index.max)
+        # do it for everysteps
+        steps = steps + 1
+        clusterNum = clusterNum - 1
       }
 
-
-      if(sum(tmp)==clusterNum){
-        cat("GOOD! get the prefect results!\n")
-        break
-      }else if(steps==max.steps){
-        cat("Reach the max of steps!\n")
-        break}
-      max.col <- apply(M,2,max)
-      # Find the two clusters that need to be merged
-      # Control that the maximum number of merges for clusters containing False is always less than the maximum number of merges for the entire data
-
-
-      if(sum(tmp) != clusterNum & sum(tmp)!=0 & min(max.col[tmp]) >= max(max.col[!tmp])){
-        break
-      }
-
-      # Find the two clusters that need to be merged
-      # Control that the maximum number of merges for clusters containing False is always less than the maximum number of merges for the entire data
-      IndexRes <- .Find_max_below_threshold(M,1e9)
-      firstMax <- IndexRes[[1]]
-      Index.min <- IndexRes[[2]]
-      Index.max <- IndexRes[[3]]
-      # find the Max of the merging times
-      merged.max = max(unlist(purrr::map(mergedNodes,.f=length)))
-      tmpMax <- firstMax
-
-      if(tmp[Index.min]==FALSE | tmp[Index.max]==FALSE){
-        if((purrr::map(mergedNodes,.f=length)[[Index.min]] > merged.max & tmp[[Index.min]]==FALSE)
-           |(purrr::map(mergedNodes,.f=length)[[Index.max]] > merged.max & tmp[Index.min]==FALSE)
-           | merged.max > length(unique(obj2@meta.data[[column]]))/2){break}
-      }
-
-      cluster.min <- Index.min - 1
-      cluster.max <- Index.max - 1
-      # It's time to merge
-      # Update the SeuratObject column
-      obj2 <- .updateSeuratObj(obj=obj2,column = Newcolumn,combined.min=cluster.min,combined.max=cluster.max,clusterNum=clusterNum)
-      # Update thr MarkersList
-      Seurat::Idents(obj2) <- Newcolumn
-      newCluster_marker <- Seurat::FindMarkers(obj2, ident.1 = cluster.min, ident.2 = NULL,only.pos=T,min.pct=0,verbose = FALSE,logfc.threshold=0)
-      newMarkers_top <- newCluster_marker %>% dplyr::top_n(n=n.top,wt=avg_log2FC)
-      newMarkers_top <- getSpecificity_score(newMarkers_top,min.pct.1= min.pct.1,min.diff=min.diff)
-
-      newMarkers_top$gene <- rownames(newMarkers_top)
-      resMarker <- updateMarkerlist(resMarker,combined.min=cluster.min,combined.max=cluster.max,newMarkers_top,clusterNum) # newMarkers_top with cluster
-      # Update the condition list
-      tmp <- .updateState(tmp,Index.min,Index.max,resMarker[resMarker$cluster==cluster.min,])
-      # Update DistanceMatrix
-      M <- .updateDistanceMatrix(M=M,Index.min=Index.min,Index.max=Index.max,resMarker=resMarker,clusterNum=clusterNum,operation=.getWeightedJaccard)
-      # Update the merged list
-      mergedNodes <- .mergeSteps(mergedNodes,combined.min=Index.min,combined.max=Index.max)
-      # do it for everysteps
-      steps = steps + 1
-      clusterNum = clusterNum - 1
+      # printSteps(mergedNodes,column)
+      clu <- .setClulterInf(resMarker,mergedNodes,i.resolution)
+      results <- rbind(results,clu)
     }
+    reslist <- list(obj2,results)
+    names(reslist) <- c('Object','result.table')
+    return(reslist)
+  }else if(substr(packageVersion('Seurat'),1,1) == '5'){
+    if(!(is(object, "Seurat") || is(object, "SeuratObject"))){
+      stop("Error: Please input a Seurat or SeuratObject!")
+    }
+    if(is.null(object@graphs)) {
+      stop("Error: Before running FindClusters, you need to compute the neighborhood graph using the FindNeighbors function. FindNeighbors builds the neighborhood graph, such as the k-nearest neighbors (KNN) graph, which is essential for cluster identification. Please run FindNeighbors with your data first to create the required neighborhood graph.")
+    }
+    if(!length(object@assays[[object@active.assay]]$scale.data)){ # V5
+      stop("Error: Please provide a Seurat object with scaled data. Make sure you have already performed data scaling before using this function.")
+    }
+    if(!use.assay %in% names(object@assays)){
+      stop("Error: The assay you selected is not in the Object! ")
+    }
+    INF = 1e9
+    obj2 <- object
+    obj2@active.assay <- use.assay
 
-    # printSteps(mergedNodes,column)
-    clu <- .setClulterInf(resMarker,mergedNodes,i.resolution)
-    results <- rbind(results,clu)
+    #    if(use.assay == "SCT"){
+    #      obj2 <- Seurat::PrepSCTFindMarkers(object=obj2,verbose=FALSE)
+    #}
+    # Global parameters for each function call
+    clustertmp <- rep(FALSE,100)
+    results <- tibble::tibble()
+    mergedNodeslist <- list()
+    # Traverse different resolutions
+    resolution.list <- c()
+    for(i.resolution in seq(min.resolution,max.resolution,by=by)){
+      Seurat::DefaultAssay(obj2) <- cluster_assay
+      obj2 <- Seurat::FindClusters(object = obj2, resolution = i.resolution,verbose=FALSE)
+      column <- paste(obj2@active.assay,"_snn_res.",as.character(i.resolution),sep="")
+      Newcolumn <- paste(prefix,"snn_res.",as.character(i.resolution),sep="")
+      clusterNum <- length(unique(obj2@meta.data[[column]]))
+      if(clustertmp[clusterNum]){
+        # results[unlist(map(results$resolution, ~identical(.,last.resolution))),]$resolution <- map(results[unlist(map(results$resolution, ~identical(.,last.resolution))),]$resolution,~c(.,i.resolution))
+        # clu$resolution <- i.resolution
+        # results <- rbind(results,clu)
+        last.resolution = c(last.resolution,i.resolution)
+        next # The number of clusters corresponding to this resolution has already appeared, omitting this merging process
+      }
+      last.resolution = list()
+      last.resolution = c(last.resolution,i.resolution)
+      resolution.list <- c(resolution.list,i.resolution)
+      cat("Now caculate the resolution: ",i.resolution,"\nThere are",clusterNum,"subclusters at this resolution.","\nThe results will be saved in ->",Newcolumn,"\n")
+      clustertmp[clusterNum] <- TRUE
+      tmp <- rep(FALSE,clusterNum)
+      steps = 0
+      while(TRUE){
+        if(steps == 0){
+          # obj2[[Newcolumn]] <- obj2[[column]]
+          obj2@meta.data[[Newcolumn]] <- as.numeric(levels(obj2@meta.data[[column]]))[obj2@meta.data[[column]]]
+          Seurat::Idents(obj2) <- Newcolumn
+          Seurat::DefaultAssay(obj2) <- use.assay
+          idents.all <- sort(x = unique(x = Seurat::Idents(object = obj2)))
+          markers.list <- list()
+          all.markers.RNA <- tibble::tibble()
+          # Before FindMarkers function
+          if(accelerated == TRUE){
+            obj_join_layers <- JoinLayers(obj2)
+            all.markers.RNA <-  presto::wilcoxauc(X = obj_join_layers,group.by = Newcolumn,assay = assay_use,verbose = FALSE)
+            all.markers.RNA <- all.markers.RNA %>%
+              dplyr::filter(
+                logFC >= logfc.threshold,
+                pct_in >= min.pct.1,
+                p_val_adj < 0.05
+              )
+          }else{
+            for(i.ident in 1:length(idents.all)){
+              i.markers <- Seurat::FindMarkers(obj_join_layers,ident.1=idents.all[i.ident],only.pos=T,min.pct=min.pct.1,assay=use.assay,verbose = FALSE,logfc.threshold=logfc.threshold) # other parameter logfc.threshold
+              i.markers <- i.markers %>%
+                dplyr::filter(p_val_adj < 0.05)
+              i.markers$cluster <- idents.all[i.ident]
+              i.markers$gene <- rownames(i.markers)
+              all.markers.RNA <- rbind(all.markers.RNA,i.markers)
+            }
+          }
+          # all.markers.RNA$gene <- rownames(all.markers.RNA)
+          Allmarkers_top <- all.markers.RNA %>% dplyr::group_by(cluster) %>%  dplyr::top_n(n=n.top,wt=avg_log2FC)
+          Allmarkers_top$cluster <- as.numeric(levels(Allmarkers_top$cluster))[Allmarkers_top$cluster]
+          # Distance Matrix
+          M <- .getInitWeightedJaccardMatrix(clusterNum,Allmarkers_top)
+          # markers with specificial score and tmp
+          resMarker <- tibble::tibble()
+          for(cluster in 0:(clusterNum-1)){
+            cluster_top_with_score <- getSpecificity_score(Allmarkers_top[Allmarkers_top$cluster==cluster,],min.pct.1= min.pct.1,min.diff = 0.4)# ,min.gap =
+            resMarker <- rbind(resMarker,cluster_top_with_score)
+            tmp[cluster + 1] <- .check_standard(cluster_top_with_score)
+          }
+          mergedNodes <- list()
+          for(i in 1:clusterNum){
+            mergedNodes[[i]] <- list(i)
+          }
+        }
+        if(sum(tmp)==clusterNum){
+          cat("GOOD! get the prefect results!\n")
+          break
+        }else if(steps==max.steps){
+          cat("Reach the max of steps!\n")
+          break}
+        max.col <- apply(M,2,max)
+        # Find the two clusters that need to be merged
+        # Control that the maximum number of merges for clusters containing False is always less than the maximum number of merges for the entire data
+
+
+        if(sum(tmp) != clusterNum & sum(tmp)!=0 & min(max.col[tmp]) >= max(max.col[!tmp])){
+          break
+        }
+
+        # Find the two clusters that need to be merged
+        # Control that the maximum number of merges for clusters containing False is always less than the maximum number of merges for the entire data
+        IndexRes <- .Find_max_below_threshold(M,1e9)
+        firstMax <- IndexRes[[1]]
+        Index.min <- IndexRes[[2]]
+        Index.max <- IndexRes[[3]]
+        # find the Max of the merging times
+        merged.max = max(unlist(purrr::map(mergedNodes,.f=length)))
+        tmpMax <- firstMax
+
+        if(tmp[Index.min]==FALSE | tmp[Index.max]==FALSE){
+          if((purrr::map(mergedNodes,.f=length)[[Index.min]] > merged.max & tmp[[Index.min]]==FALSE)
+             |(purrr::map(mergedNodes,.f=length)[[Index.max]] > merged.max & tmp[Index.min]==FALSE)
+             | merged.max > length(unique(obj2@meta.data[[column]]))/2){break}
+        }
+
+        cluster.min <- Index.min - 1
+        cluster.max <- Index.max - 1
+        steps = steps + 1
+        clusterNum = clusterNum - 1
+        # It's time to merge
+        # Update the SeuratObject column
+        obj2 <- .updateSeuratObj(obj=obj2,column = Newcolumn,combined.min=cluster.min,combined.max=cluster.max,clusterNum=clusterNum)
+        # Update thr MarkersList
+        obj_join_layers[[Newcolumn]] <- obj2[[Newcolumn]]
+        Seurat::Idents(obj_join_layers) <- Newcolumn
+        Seurat::Idents(obj2) <- Newcolumn
+        if(accelerated == TRUE){
+          obj_join_layers <- JoinLayers(obj2)
+          all.markers.RNA <-  presto::wilcoxauc(X = obj_join_layers,group.by = Newcolumn,assay = assay_use,verbose = FALSE)
+          all.markers.RNA <- all.markers.RNA %>%
+            dplyr::filter(
+              logFC >= logfc.threshold,
+              pct_in >= min.pct.1,
+              p_val_adj < 0.05
+            )
+          Allmarkers_top <- all.markers.RNA %>% dplyr::group_by(cluster) %>%  dplyr::top_n(n=n.top,wt=avg_log2FC)
+          Allmarkers_top$cluster <- as.numeric(levels(Allmarkers_top$cluster))[Allmarkers_top$cluster]
+          resMarker <- tibble::tibble()
+          for(cluster in 0:(clusterNum-1)){
+            cluster_top_with_score <- getSpecificity_score(Allmarkers_top[Allmarkers_top$cluster==cluster,],min.pct.1= min.pct.1,min.diff = 0.4)# ,min.gap =
+            resMarker <- rbind(resMarker,cluster_top_with_score)
+          }
+        }else{
+          newCluster_marker <- Seurat::FindMarkers(obj_join_layers, ident.1 = cluster.min, ident.2 = NULL,only.pos=T,min.pct=0,verbose = FALSE,logfc.threshold=0)
+          newMarkers_top <- newCluster_marker %>% dplyr::top_n(n=n.top,wt=avg_log2FC)
+          newMarkers_top <- getSpecificity_score(newMarkers_top,min.pct.1= min.pct.1,min.diff=min.diff)
+          newMarkers_top$gene <- rownames(newMarkers_top)
+          resMarker <- .updateMarkerlist(resMarker,combined.min=cluster.min,combined.max=cluster.max,newMarkers_top,clusterNum) # newMarkers_top with cluster
+        }
+        # Update the condition list
+        tmp <- .updateState(tmp,Index.min,Index.max,resMarker[resMarker$cluster==cluster.min,])
+        # Update DistanceMatrix
+        M <- .updateDistanceMatrix(M=M,Index.min=Index.min,Index.max=Index.max,resMarker=resMarker,clusterNum=clusterNum,operation=.getWeightedJaccard)
+        # Update the merged list
+        mergedNodes <- .mergeSteps(mergedNodes,combined.min=Index.min,combined.max=Index.max)
+        # do it for everysteps
+      }
+
+      # printSteps(mergedNodes,column)
+      clu <- .setClulterInf(resMarker,mergedNodes,i.resolution)
+      results <- rbind(results,clu)
+    }
+    reslist <- list(obj2,results)
+    names(reslist) <- c('Object','result.table')
+    return(reslist)
   }
-  reslist <- list(obj2,results)
-  names(reslist) <- c('Object','result.table')
-  return(reslist)
 }
 
 #' Title Sort scoring results by resolution
