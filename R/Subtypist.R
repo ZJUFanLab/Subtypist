@@ -240,7 +240,7 @@ Subtypist_merge <- function(object,
               dplyr::filter(
                 logFC >= logfc.threshold,
                 pct_in >= min.pct.1,
-                p_val_adj < 0.05
+                padj < 0.05
               )
           }else{
             for(i.ident in 1:length(idents.all)){
@@ -318,7 +318,7 @@ Subtypist_merge <- function(object,
             dplyr::filter(
               logFC >= logfc.threshold,
               pct_in >= min.pct.1,
-              p_val_adj < 0.05
+              padj < 0.05
             )
           Allmarkers_top <- all.markers.RNA %>% dplyr::group_by(cluster) %>%  dplyr::top_n(n=n.top,wt=avg_log2FC)
           Allmarkers_top$cluster <- as.numeric(levels(Allmarkers_top$cluster))[Allmarkers_top$cluster]
