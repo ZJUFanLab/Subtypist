@@ -29,7 +29,7 @@ Subtypist_merge <- function(object,
                             cluster_assay = "integrated",
                             n.top=500,
                             min.pct.1=0.1,
-                            min.diff=0.1,
+                            min.diff=0.4,
                             min.avg_log2FC=0.5,
                             logfc.threshold = 0.1,
                             prefix = 'Subtypist',
@@ -106,7 +106,7 @@ Subtypist_merge <- function(object,
           # markers with specificial score and tmp
           resMarker <- tibble::tibble()
           for(cluster in 0:(clusterNum-1)){
-            cluster_top_with_score <- getSpecificity_score(Allmarkers_top[Allmarkers_top$cluster==cluster,],min.pct.1= min.pct.1,min.diff = 0.4)# ,min.gap =
+            cluster_top_with_score <- getSpecificity_score(Allmarkers_top[Allmarkers_top$cluster==cluster,],min.pct.1= min.pct.1,min.diff = min.diff)# ,min.gap =
             resMarker <- rbind(resMarker,cluster_top_with_score)
             tmp[cluster + 1] <- .check_standard(cluster_top_with_score)
           }
@@ -235,13 +235,18 @@ Subtypist_merge <- function(object,
           # Before FindMarkers function
           if(accelerated == TRUE){
             obj_join_layers <- JoinLayers(obj2)
-            all.markers.RNA <-  presto::wilcoxauc(X = obj_join_layers,group.by = Newcolumn,verbose = FALSE)
+            all.markers.RNA <-  presto::wilcoxauc(X = obj_join_layers,group.by = 'celltype',verbose = FALSE)
             all.markers.RNA <- all.markers.RNA %>%
               dplyr::filter(
-                logFC >= logfc.threshold,
-                pct_in >= min.pct.1,
+                logFC >= 0.1,
+                pct_in >= 0.1,
                 padj < 0.05
               )
+            all.markers.RNA$pct_in <- all.markers.RNA$pct_in / 100
+            all.markers.RNA$pct_out <- all.markers.RNA$pct_out / 100
+            colnames(all.markers.RNA) <- c('gene','cluster','avgExpr','avg_log2FC','statistic','auc',
+                                           'p_val','p_val_adj','pct.1','pct.2')
+            all.markers.RNA <- all.markers.RNA[,c('cluster','gene','p_val','avg_log2FC','pct.1','pct.2','p_val_adj')]
           }else{
             for(i.ident in 1:length(idents.all)){
               i.markers <- Seurat::FindMarkers(obj_join_layers,ident.1=idents.all[i.ident],only.pos=T,min.pct=min.pct.1,assay=use.assay,verbose = FALSE,logfc.threshold=logfc.threshold) # other parameter logfc.threshold
@@ -252,9 +257,9 @@ Subtypist_merge <- function(object,
               all.markers.RNA <- rbind(all.markers.RNA,i.markers)
             }
           }
-          # all.markers.RNA$gene <- rownames(all.markers.RNA)
           Allmarkers_top <- all.markers.RNA %>% dplyr::group_by(cluster) %>%  dplyr::top_n(n=n.top,wt=avg_log2FC)
-          Allmarkers_top$cluster <- as.numeric(levels(Allmarkers_top$cluster))[Allmarkers_top$cluster]
+          Allmarkers_top$cluster <- as.numeric(as.character(Allmarkers_top$cluster))
+          # Allmarkers_top$cluster <- as.numeric(levels(Allmarkers_top$cluster))[Allmarkers_top$cluster]
           # Distance Matrix
           M <- .getInitWeightedJaccardMatrix(clusterNum,Allmarkers_top)
           # markers with specificial score and tmp
@@ -283,7 +288,6 @@ Subtypist_merge <- function(object,
         if(sum(tmp) != clusterNum & sum(tmp)!=0 & min(max.col[tmp]) >= max(max.col[!tmp])){
           break
         }
-
         # Find the two clusters that need to be merged
         # Control that the maximum number of merges for clusters containing False is always less than the maximum number of merges for the entire data
         IndexRes <- .Find_max_below_threshold(M,1e9)
@@ -313,18 +317,23 @@ Subtypist_merge <- function(object,
         Seurat::Idents(obj2) <- Newcolumn
         if(accelerated == TRUE){
           obj_join_layers <- JoinLayers(obj2)
-          all.markers.RNA <-  presto::wilcoxauc(X = obj_join_layers,group.by = Newcolumn,verbose = FALSE)
+          all.markers.RNA <-  presto::wilcoxauc(X = obj_join_layers,group.by = 'celltype',verbose = FALSE)
           all.markers.RNA <- all.markers.RNA %>%
             dplyr::filter(
-              logFC >= logfc.threshold,
-              pct_in >= min.pct.1,
+              logFC >= 0.1,
+              pct_in >= 0.1,
               padj < 0.05
             )
-          Allmarkers_top <- all.markers.RNA %>% dplyr::group_by(cluster) %>%  dplyr::top_n(n=n.top,wt=avg_log2FC)
-          Allmarkers_top$cluster <- as.numeric(levels(Allmarkers_top$cluster))[Allmarkers_top$cluster]
+          all.markers.RNA$pct_in <- all.markers.RNA$pct_in / 100
+          all.markers.RNA$pct_out <- all.markers.RNA$pct_out / 100
+          colnames(all.markers.RNA) <- c('gene','cluster','avgExpr','avg_log2FC','statistic','auc',
+                                         'p_val','p_val_adj','pct.1','pct.2')
+          all.markers.RNA <- all.markers.RNA[,c('cluster','gene','p_val','avg_log2FC','pct.1','pct.2','p_val_adj')]
+          Allmarkers_top <- all.markers.RNA %>% dplyr::group_by(cluster) %>%  dplyr::top_n(n=300,wt=avg_log2FC)
+          Allmarkers_top$cluster <- as.numeric(Allmarkers_top$cluster)
           resMarker <- tibble::tibble()
           for(cluster in 0:(clusterNum-1)){
-            cluster_top_with_score <- getSpecificity_score(Allmarkers_top[Allmarkers_top$cluster==cluster,],min.pct.1= min.pct.1,min.diff = 0.4)# ,min.gap =
+            cluster_top_with_score <- getSpecificity_score(Allmarkers_top[Allmarkers_top$cluster==cluster,],min.pct.1= min.pct.1,min.diff = min.diff)# ,min.gap =
             resMarker <- rbind(resMarker,cluster_top_with_score)
           }
         }else{
