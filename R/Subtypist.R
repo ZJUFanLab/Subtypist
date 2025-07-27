@@ -492,7 +492,7 @@ saveResults <- function(result.table,path,name)
   if (missing(name) || !nzchar(name)) {
     stop("'name' must be a non-empty string.")
   }
-    # Format columns if present and are lists
+  # Format columns if present and are lists
   if ("molecular_phenotype" %in% colnames(result.table) && is.list(result.table$molecular_phenotype)) {
     result.table$molecular_phenotype <- purrr::map_chr(
       result.table$molecular_phenotype, ~ paste(.x, collapse = " / ")
