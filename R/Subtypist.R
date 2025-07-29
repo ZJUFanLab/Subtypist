@@ -350,9 +350,10 @@ Subtypist_merge <- function(object,
         # Update the merged list
         mergedNodes <- .mergeSteps(mergedNodes,combined.min=Index.min,combined.max=Index.max)
         # do it for everysteps
+        print(mergedNodes)
       }
 
-      printSteps(mergedNodes,column)
+      # printSteps(mergedNodes,column)
       clu <- .setClulterInf(resMarker,mergedNodes,i.resolution)
       results <- rbind(results,clu)
     }
