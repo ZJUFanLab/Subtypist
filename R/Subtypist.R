@@ -352,7 +352,7 @@ Subtypist_merge <- function(object,
         # do it for everysteps
       }
 
-      # printSteps(mergedNodes,column)
+      printSteps(mergedNodes,column)
       clu <- .setClulterInf(resMarker,mergedNodes,i.resolution)
       results <- rbind(results,clu)
     }
