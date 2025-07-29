@@ -9,14 +9,14 @@
 
 .getInitState <- function(resMarker,clusterNum,tmp,min.score=0){
   for(i in 1:clusterNum){
-    tmp[i] <- check_standard(resMarkers[resMarkers$cluster==i,])
+    tmp[i] <- .check_standard(resMarkers[resMarkers$cluster==i,])
   }
   return(tmp)
 }
 
 
 .updateState <- function(tmp,combined.min,combined.max,resMarker){
-  tmp[combined.min] <- check_standard(resMarker[resMarker$cluster==(combined.min-1),])
+  tmp[combined.min] <- .check_standard(resMarker[resMarker$cluster==(combined.min-1),])
   tmp <- tmp[-combined.max]
   return(tmp)
 }
