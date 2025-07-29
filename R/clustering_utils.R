@@ -169,8 +169,7 @@
   score<-aggregate(genes_score.top$specificity_score, by=list(type=genes_score.top$cluster),sum)[,-1]
   print(length(merge_cluster))
   print(length(sort(merge_cluster,decreasing = FALSE)))
-  print(mergedNodes)
-  # print(tibble::tibble(purrr::map(mergedNodes,.f=function(x){return(purrr::map(x,.f=function(y){return(y-1)}))})))
+  cat(tibble::tibble(purrr::map(mergedNodes,.f=function(x){return(purrr::map(x,.f=function(y){return(y-1)}))})))
   print(length(score))
   clu <- cbind(resolution=rep(resolution,length(merge_cluster)),
                tibble::tibble(merge_cluster=sort(merge_cluster,decreasing = FALSE)),

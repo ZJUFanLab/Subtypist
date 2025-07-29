@@ -283,8 +283,6 @@ Subtypist_merge <- function(object,
         max.col <- apply(M,2,max)
         # Find the two clusters that need to be merged
         # Control that the maximum number of merges for clusters containing False is always less than the maximum number of merges for the entire data
-
-
         if(sum(tmp) != clusterNum & sum(tmp)!=0 & min(max.col[tmp]) >= max(max.col[!tmp])){
           break
         }
@@ -306,8 +304,6 @@ Subtypist_merge <- function(object,
 
         cluster.min <- Index.min - 1
         cluster.max <- Index.max - 1
-        steps = steps + 1
-        clusterNum = clusterNum - 1
         # It's time to merge
         # Update the SeuratObject column
         obj2 <- .updateSeuratObj(obj=obj2,column = Newcolumn,combined.min=cluster.min,combined.max=cluster.max,clusterNum=clusterNum)
@@ -350,7 +346,8 @@ Subtypist_merge <- function(object,
         # Update the merged list
         mergedNodes <- .mergeSteps(mergedNodes,combined.min=Index.min,combined.max=Index.max)
         # do it for everysteps
-        print(mergedNodes)
+        steps = steps + 1
+        clusterNum = clusterNum - 1
       }
 
       # printSteps(mergedNodes,column)
