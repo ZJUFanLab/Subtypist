@@ -167,6 +167,10 @@
   # score <- aggregate(AllScore,by=list(type=Allscore$cluster),sum)[,-1]
   genes_score.top <- genes_score %>% dplyr::group_by(cluster) %>% dplyr::top_n(n=3,wt=avg_log2FC)
   score<-aggregate(genes_score.top$specificity_score, by=list(type=genes_score.top$cluster),sum)[,-1]
+  print(length(merge_cluster))
+  print(length(sort(merge_cluster,decreasing = FALSE)))
+  print(tibble::tibble(purrr::map(mergedNodes,.f=function(x){return(purrr::map(x,.f=function(y){return(y-1)}))})))
+  print(length(score))
   clu <- cbind(resolution=rep(resolution,length(merge_cluster)),
                tibble::tibble(merge_cluster=sort(merge_cluster,decreasing = FALSE)),
                initial_cluster=tibble::tibble(purrr::map(mergedNodes,.f=function(x){return(purrr::map(x,.f=function(y){return(y-1)}))})),
