@@ -159,7 +159,7 @@ Subtypist_merge <- function(object,
         newMarkers_top <- getSpecificity_score(newMarkers_top,min.pct.1= min.pct.1,min.diff=min.diff)
 
         newMarkers_top$gene <- rownames(newMarkers_top)
-        resMarker <- updateMarkerlist(resMarker,combined.min=cluster.min,combined.max=cluster.max,newMarkers_top,clusterNum) # newMarkers_top with cluster
+        resMarker <- .updateMarkerlist(resMarker,combined.min=cluster.min,combined.max=cluster.max,newMarkers_top,clusterNum) # newMarkers_top with cluster
         # Update the condition list
         tmp <- .updateState(tmp,Index.min,Index.max,resMarker[resMarker$cluster==cluster.min,])
         # Update DistanceMatrix
