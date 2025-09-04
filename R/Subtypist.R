@@ -33,7 +33,8 @@ Subtypist_merge <- function(object,
                             min.avg_log2FC=0.5,
                             logfc.threshold = 0.1,
                             prefix = 'Subtypist',
-                            accelerated = FALSE)
+                            accelerated = FALSE,
+                            algorithm = 1)
 {
   if(substr(packageVersion('Seurat'),1,1) == '4'){
     if(!(is(object, "Seurat") || is(object, "SeuratObject"))){
@@ -61,7 +62,7 @@ Subtypist_merge <- function(object,
     resolution.list <- c()
     for(i.resolution in seq(min.resolution,max.resolution,by=by)){
       Seurat::DefaultAssay(obj2) <- cluster_assay
-      obj2 <- Seurat::FindClusters(object = obj2, resolution = i.resolution,verbose=FALSE)
+      obj2 <- Seurat::FindClusters(object = obj2, resolution = i.resolution,verbose=FALSE,algorithm=algorithm)
       column <- paste(obj2@active.assay,"_snn_res.",as.character(i.resolution),sep="")
       Newcolumn <- paste(prefix,"snn_res.",as.character(i.resolution),sep="")
       clusterNum <- length(unique(obj2@meta.data[[column]]))
@@ -108,7 +109,7 @@ Subtypist_merge <- function(object,
           for(cluster in 0:(clusterNum-1)){
             cluster_top_with_score <- getSpecificity_score(Allmarkers_top[Allmarkers_top$cluster==cluster,],min.pct.1= min.pct.1,min.diff = min.diff)# ,min.gap =
             resMarker <- rbind(resMarker,cluster_top_with_score)
-            tmp[cluster + 1] <- .check_standard(cluster_top_with_score)
+            tmp[cluster + 1] <- .check_standard(cluster_top_with_score,tua = 0)
           }
           mergedNodes <- list()
           for(i in 1:clusterNum){
@@ -205,7 +206,7 @@ Subtypist_merge <- function(object,
     resolution.list <- c()
     for(i.resolution in seq(min.resolution,max.resolution,by=by)){
       # Seurat::DefaultAssay(obj2) <- cluster_assay # FindNeighbor 去批次的基础上run
-      obj2 <- Seurat::FindClusters(object = obj2, resolution = i.resolution,verbose=FALSE)
+      obj2 <- Seurat::FindClusters(object = obj2, resolution = i.resolution,verbose=FALSE,algorithm=algorithm)
       column <- paste(obj2@active.assay,"_snn_res.",as.character(i.resolution),sep="")
       Newcolumn <- paste(prefix,"snn_res.",as.character(i.resolution),sep="")
       clusterNum <- length(unique(obj2@meta.data[[column]]))
