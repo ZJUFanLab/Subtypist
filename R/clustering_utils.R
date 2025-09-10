@@ -1,5 +1,5 @@
 
-.check_standard <- function(resMarker,tua=tua){
+.check_standard <- function(resMarker,tua=0){
   temp <- FALSE
   if(sum(resMarker$specificity_score) > tua) {
     temp = TRUE
