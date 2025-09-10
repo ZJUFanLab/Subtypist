@@ -36,7 +36,8 @@ Subtypist_merge <- function(object,
                             prefix = 'Subtypist',
                             accelerated = FALSE,
                             algorithm = 1,
-                            tua = 0)
+                            tua = 0,
+                            verbose = FALSE)
 {
   if(substr(packageVersion('Seurat'),1,1) == '4'){
     if(!(is(object, "Seurat") || is(object, "SeuratObject"))){
@@ -79,7 +80,7 @@ Subtypist_merge <- function(object,
       last.resolution = c(last.resolution,i.resolution)
       resolution.list <- c(resolution.list,i.resolution)
 
-      cat("Now caculate the resolution: ",i.resolution,"\nThere are",clusterNum,"subclusters at this resolution.","\nThe results will be saved in ->",Newcolumn,"\n")
+      if(verbose) cat("Now caculate the resolution: ",i.resolution,"\nThere are",clusterNum,"subclusters at this resolution.","\nThe results will be saved in ->",Newcolumn,"\n")
       clustertmp[clusterNum] <- TRUE
       tmp <- rep(FALSE,clusterNum)
       steps = 0
@@ -121,10 +122,10 @@ Subtypist_merge <- function(object,
 
 
         if(sum(tmp)==clusterNum){
-          cat("GOOD! get the prefect results!\n")
+          if(verbose) cat("GOOD! get the prefect results!\n")
           break
         }else if(steps==max.steps){
-          cat("Reach the max of steps!\n")
+          if(verbose) cat("Reach the max of steps!\n")
           break}
         max.col <- apply(M,2,max)
         # Find the two clusters that need to be merged
@@ -222,7 +223,7 @@ Subtypist_merge <- function(object,
       last.resolution = list()
       last.resolution = c(last.resolution,i.resolution)
       resolution.list <- c(resolution.list,i.resolution)
-      cat("Now caculate the resolution: ",i.resolution,"\nThere are",clusterNum,"subclusters at this resolution.","\nThe results will be saved in ->",Newcolumn,"\n")
+      if(verbose) cat("Now caculate the resolution: ",i.resolution,"\nThere are",clusterNum,"subclusters at this resolution.","\nThe results will be saved in ->",Newcolumn,"\n")
       clustertmp[clusterNum] <- TRUE
       tmp <- rep(FALSE,clusterNum)
       steps = 0
@@ -278,10 +279,10 @@ Subtypist_merge <- function(object,
           }
         }
         if(sum(tmp)==clusterNum){
-          cat("GOOD! get the prefect results!\n")
+          if(verbose) cat("GOOD! get the prefect results!\n")
           break
         }else if(steps==max.steps){
-          cat("Reach the max of steps!\n")
+          if(verbose) cat("Reach the max of steps!\n")
           break}
         max.col <- apply(M,2,max)
         # Find the two clusters that need to be merged
