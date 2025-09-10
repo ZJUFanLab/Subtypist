@@ -15,6 +15,7 @@ NULL
 #' @param logfc.threshold the threshold of the log2 Flod Change
 #' @param prefix String prefix for naming metadata columns. Each column name will be constructed as "<prefix>.snn_res.<resolution>"
 #' @param accelerated Whether to enable accelerated mode. Default is FALSE.
+#' @param algorithm Whether to enable accelerated mode. Default is FALSE.
 #'
 #' @return list of objects and merged results
 #' @export
@@ -27,14 +28,15 @@ Subtypist_merge <- function(object,
                             max.steps = 100,
                             use.assay="RNA",
                             cluster_assay = "integrated",
-                            n.top=500,
+                            n.top=300,
                             min.pct.1=0.1,
                             min.diff=0.4,
                             min.avg_log2FC=0.5,
                             logfc.threshold = 0.1,
                             prefix = 'Subtypist',
                             accelerated = FALSE,
-                            algorithm = 1)
+                            algorithm = 1,
+                            tua = 0)
 {
   if(substr(packageVersion('Seurat'),1,1) == '4'){
     if(!(is(object, "Seurat") || is(object, "SeuratObject"))){
