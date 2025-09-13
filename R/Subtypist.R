@@ -69,6 +69,7 @@ Subtypist_merge <- function(object,
       column <- paste(obj2@active.assay,"_snn_res.",as.character(i.resolution),sep="")
       Newcolumn <- paste(prefix,"snn_res.",as.character(i.resolution),sep="")
       clusterNum <- length(unique(obj2@meta.data[[column]]))
+      if(clusterNum == 1) next
       if(clustertmp[clusterNum]){
         # results[unlist(map(results$resolution, ~identical(.,last.resolution))),]$resolution <- map(results[unlist(map(results$resolution, ~identical(.,last.resolution))),]$resolution,~c(.,i.resolution))
         # clu$resolution <- i.resolution
@@ -213,6 +214,7 @@ Subtypist_merge <- function(object,
       column <- paste(obj2@active.assay,"_snn_res.",as.character(i.resolution),sep="")
       Newcolumn <- paste(prefix,"snn_res.",as.character(i.resolution),sep="")
       clusterNum <- length(unique(obj2@meta.data[[column]]))
+      if(clusterNum == 1) next
       if(clustertmp[clusterNum]){
         # results[unlist(map(results$resolution, ~identical(.,last.resolution))),]$resolution <- map(results[unlist(map(results$resolution, ~identical(.,last.resolution))),]$resolution,~c(.,i.resolution))
         # clu$resolution <- i.resolution
