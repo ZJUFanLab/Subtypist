@@ -163,8 +163,6 @@
   molecular_phenotype <- aggregate(top_genes$gene, by=list(type=top_genes$cluster),list)[-1]
   molecular_phenotype <- tibble::tibble(purrr::map(molecular_phenotype$x,.f=function(y){return(y[0:3])}))
   genes_score <- resMarker %>% dplyr::arrange(desc(avg_log2FC)) %>% dplyr::arrange(desc(specificity_score))%>% dplyr::arrange(desc(cluster)) %>% dplyr::group_by(cluster)
-  # Allscore <- genes_score %>% group.by(cluster) %>% top_n(n=3,wt=Score)
-  # score <- aggregate(AllScore,by=list(type=Allscore$cluster),sum)[,-1]
   genes_score.top <- genes_score %>% dplyr::group_by(cluster) %>% dplyr::top_n(n=3,wt=avg_log2FC)
   score<-aggregate(genes_score.top$specificity_score, by=list(type=genes_score.top$cluster),sum)[,-1]
   clu <- cbind(resolution=rep(resolution,length(merge_cluster)),

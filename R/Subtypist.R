@@ -75,7 +75,7 @@ Subtypist_merge <- function(object,
         # clu$resolution <- i.resolution
         # results <- rbind(results,clu)
         last.resolution = c(last.resolution,i.resolution)
-        # next # The number of clusters corresponding to this resolution has already appeared, omitting this merging process
+        next # The number of clusters corresponding to this resolution has already appeared, omitting this merging process
       }
       last.resolution = list()
       last.resolution = c(last.resolution,i.resolution)
@@ -135,7 +135,6 @@ Subtypist_merge <- function(object,
         if(sum(tmp) != clusterNum & sum(tmp)!=0 & min(max.col[tmp]) >= max(max.col[!tmp])){
           break
         }
-
         # Find the two clusters that need to be merged
         # Control that the maximum number of merges for clusters containing False is always less than the maximum number of merges for the entire data
         IndexRes <- .Find_max_below_threshold(M,1e9)
@@ -220,7 +219,7 @@ Subtypist_merge <- function(object,
         # clu$resolution <- i.resolution
         # results <- rbind(results,clu)
         last.resolution = c(last.resolution,i.resolution)
-        # next # The number of clusters corresponding to this resolution has already appeared, omitting this merging process
+        next # The number of clusters corresponding to this resolution has already appeared, omitting this merging process
       }
       last.resolution = list()
       last.resolution = c(last.resolution,i.resolution)
