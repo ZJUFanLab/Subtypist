@@ -168,9 +168,9 @@ setClulterInf <- function(resMarker,mergedNodes,resolution){
   # 在您的 .setClulterInf 函数中，找到出错的 cbind 前面
   # 加入这些打印语句：
   print(molecular_phenotype)
-  print(1)
+  print("$%$$$$$")
   print(merge_cluster)
-  print(2)
+  print("$%$$$$$")
   print(mergedNodes)
   print(paste("Length of merge_cluster:", length(merge_cluster)))
   print(paste("Length of mergedNodes:", length(mergedNodes))) # 这个决定了 initial_cluster 的长度
