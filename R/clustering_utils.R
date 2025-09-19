@@ -170,20 +170,7 @@ setClulterInf <- function(resMarker,mergedNodes,resolution){
   genes_score <- resMarker %>% dplyr::arrange(desc(avg_log2FC)) %>% dplyr::arrange(desc(specificity_score))%>% dplyr::arrange(desc(cluster)) %>% dplyr::group_by(cluster)
   genes_score.top <- genes_score %>% dplyr::group_by(cluster) %>% dplyr::top_n(n=3,wt=avg_log2FC)
   score<-aggregate(genes_score.top$specificity_score, by=list(type=genes_score.top$cluster),sum)[,-1]
-  # 在您的 .setClulterInf 函数中，找到出错的 cbind 前面
-  # 加入这些打印语句：
-  print(molecular_phenotype)
-  print("$%$$$$$")
-  print(merge_cluster)
-  print("$%$$$$$")
-  print(mergedNodes)
-  print(paste("Length of merge_cluster:", length(merge_cluster)))
-  print(paste("Length of mergedNodes:", length(mergedNodes))) # 这个决定了 initial_cluster 的长度
-  print(paste("Length of molecular_phenotype:", length(molecular_phenotype)))
-  print(paste("Length of score:", length(score)))
 
-  # 这里是您原来的、导致错误的代码
-  # cbind(resolution = ..., merge_cluster = ..., ...)
   clu <- cbind(resolution=rep(resolution,length(merge_cluster)),
                tibble::tibble(merge_cluster=sort(merge_cluster,decreasing = FALSE)),
                initial_cluster=tibble::tibble(purrr::map(mergedNodes,.f=function(x){return(purrr::map(x,.f=function(y){return(y-1)}))})),
