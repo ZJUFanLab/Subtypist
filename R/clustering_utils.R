@@ -158,10 +158,15 @@
 }
 
 setClulterInf <- function(resMarker,mergedNodes,resolution){
-  top_genes <- resMarker %>% dplyr::arrange(desc(avg_log2FC)) %>% dplyr::arrange(desc(specificity_score))%>% dplyr::arrange(desc(cluster)) %>% dplyr::group_by(cluster) %>% dplyr::top_n(n=3,wt=specificity_score)
+
+  # Inside setClulterInf function
+  top_genes <- resMarker %>% dplyr::arrange(desc(avg_log2FC)) %>% dplyr::arrange(desc(specificity_score))%>% dplyr::arrange(desc(cluster)) %>%
+    dplyr::group_by(cluster) %>%
+    dplyr::slice_max(order_by = specificity_score, n = 3, with_ties = FALSE)
+  # top_genes <- resMarker %>% dplyr::arrange(desc(avg_log2FC)) %>% dplyr::arrange(desc(specificity_score))%>% dplyr::arrange(desc(cluster)) %>% dplyr::group_by(cluster) %>% dplyr::top_n(n=3,wt=specificity_score)
   merge_cluster <- unique(top_genes$cluster)
   molecular_phenotype <- aggregate(top_genes$gene, by=list(type=top_genes$cluster),list)[-1]
-  molecular_phenotype <- tibble::tibble(purrr::map(molecular_phenotype$x,.f=function(y){return(y[0:3])}))
+  molecular_phenotype <- tibble::tibble(purrr::map(molecular_phenotype$x,.f=function(y){return(y[1:3])}))
   genes_score <- resMarker %>% dplyr::arrange(desc(avg_log2FC)) %>% dplyr::arrange(desc(specificity_score))%>% dplyr::arrange(desc(cluster)) %>% dplyr::group_by(cluster)
   genes_score.top <- genes_score %>% dplyr::group_by(cluster) %>% dplyr::top_n(n=3,wt=avg_log2FC)
   score<-aggregate(genes_score.top$specificity_score, by=list(type=genes_score.top$cluster),sum)[,-1]
