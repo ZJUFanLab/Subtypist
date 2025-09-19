@@ -167,6 +167,9 @@ setClulterInf <- function(resMarker,mergedNodes,resolution){
   score<-aggregate(genes_score.top$specificity_score, by=list(type=genes_score.top$cluster),sum)[,-1]
   # 在您的 .setClulterInf 函数中，找到出错的 cbind 前面
   # 加入这些打印语句：
+  print(molecular_phenotype)
+  print(merge_cluster)
+  print(mergedNodes)
   print(paste("Length of merge_cluster:", length(merge_cluster)))
   print(paste("Length of mergedNodes:", length(mergedNodes))) # 这个决定了 initial_cluster 的长度
   print(paste("Length of molecular_phenotype:", length(molecular_phenotype)))
