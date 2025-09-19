@@ -157,7 +157,7 @@
   return(list(first,second))
 }
 
-.setClulterInf <- function(resMarker,mergedNodes,resolution){
+setClulterInf <- function(resMarker,mergedNodes,resolution){
   top_genes <- resMarker %>% dplyr::arrange(desc(avg_log2FC)) %>% dplyr::arrange(desc(specificity_score))%>% dplyr::arrange(desc(cluster)) %>% dplyr::group_by(cluster) %>% dplyr::top_n(n=3,wt=specificity_score)
   merge_cluster <- unique(top_genes$cluster)
   molecular_phenotype <- aggregate(top_genes$gene, by=list(type=top_genes$cluster),list)[-1]
