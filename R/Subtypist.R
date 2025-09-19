@@ -75,7 +75,7 @@ Subtypist_merge <- function(object,
         # clu$resolution <- i.resolution
         # results <- rbind(results,clu)
         last.resolution = c(last.resolution,i.resolution)
-        next # The number of clusters corresponding to this resolution has already appeared, omitting this merging process
+        # next # The number of clusters corresponding to this resolution has already appeared, omitting this merging process
       }
       last.resolution = list()
       last.resolution = c(last.resolution,i.resolution)
@@ -219,7 +219,7 @@ Subtypist_merge <- function(object,
         # clu$resolution <- i.resolution
         # results <- rbind(results,clu)
         last.resolution = c(last.resolution,i.resolution)
-        next # The number of clusters corresponding to this resolution has already appeared, omitting this merging process
+        # next # The number of clusters corresponding to this resolution has already appeared, omitting this merging process
       }
       last.resolution = list()
       last.resolution = c(last.resolution,i.resolution)
