@@ -67,6 +67,12 @@ Subtypist_merge <- function(object,
       Seurat::DefaultAssay(obj2) <- cluster_assay
       obj2 <- Seurat::FindClusters(object = obj2, resolution = i.resolution,verbose=FALSE,algorithm=algorithm)
       column <- paste(obj2@active.assay,"_snn_res.",as.character(i.resolution),sep="")
+      if(algorithm == 4){
+        obj2@meta.data[[column]] <- as.numeric(obj2@meta.data[[column]])
+        obj2@meta.data[[column]] <- obj2@meta.data[[column]] - 1
+        Idents(obj2) <- obj2@meta.data[[column]]
+        obj2@meta.data[[column]] <- factor(obj2@meta.data[[column]],levels = 0:(length(unique(obj2@meta.data[[column]]))-1))
+      }
       Newcolumn <- paste(prefix,"snn_res.",as.character(i.resolution),sep="")
       clusterNum <- length(unique(obj2@meta.data[[column]]))
       if(clusterNum == 1) next
@@ -96,7 +102,7 @@ Subtypist_merge <- function(object,
           markers.list <- list()
           all.markers.RNA <- tibble::tibble()
           for(i.ident in 1:length(idents.all)){
-            i.markers <- Seurat::FindMarkers(obj2,ident.1=idents.all[i.ident],only.pos=T,min.pct=min.pct.1,verbose = FALSE,logfc.threshold=logfc.threshold) # other parameter logfc.threshold
+            i.markers <- Seurat::FindMarkers(obj2,ident.1=idents.all[i.ident],only.pos=T,min.pct=0.1,verbose = FALSE,logfc.threshold=0.1) # other parameter logfc.threshold
             i.markers <- i.markers %>%
               dplyr::filter(p_val_adj < 0.05)
             i.markers$cluster <- idents.all[i.ident]
@@ -112,6 +118,9 @@ Subtypist_merge <- function(object,
           resMarker <- tibble::tibble()
           for(cluster in 0:(clusterNum-1)){
             cluster_top_with_score <- getSpecificity_score(Allmarkers_top[Allmarkers_top$cluster==cluster,],min.pct.1= min.pct.1,min.diff = min.diff)# ,min.gap =
+            if(nrow(cluster_top_with_score) == 0) {
+              cat(paste0("Warning: No specific markers found for cluster '", cluster, "'.\n",
+                         "Consider lowering the filtering thresholds (e.g., min.pct.1 or min.diff).\n"))
             resMarker <- rbind(resMarker,cluster_top_with_score)
             tmp[cluster + 1] <- .check_standard(cluster_top_with_score,tua = tua)
           }
@@ -176,7 +185,7 @@ Subtypist_merge <- function(object,
       }
 
       # printSteps(mergedNodes,column)
-      clu <- setClulterInf(resMarker,mergedNodes,i.resolution)
+      clu <- .setClulterInf(resMarker,mergedNodes,i.resolution)
       results <- rbind(results,clu)
     }
     reslist <- list(obj2,results)
@@ -254,7 +263,7 @@ Subtypist_merge <- function(object,
             all.markers.RNA <- all.markers.RNA[,c('cluster','gene','p_val','avg_log2FC','pct.1','pct.2','p_val_adj')]
           }else{
             for(i.ident in 1:length(idents.all)){
-              i.markers <- Seurat::FindMarkers(obj_join_layers,ident.1=idents.all[i.ident],only.pos=T,min.pct=min.pct.1,assay=use.assay,verbose = FALSE,logfc.threshold=logfc.threshold) # other parameter logfc.threshold
+              i.markers <- Seurat::FindMarkers(obj_join_layers,ident.1=idents.all[i.ident],only.pos=T,min.pct=0.01,assay=use.assay,verbose = FALSE,logfc.threshold=0.1) # other parameter logfc.threshold
               i.markers <- i.markers %>%
                 dplyr::filter(p_val_adj < 0.05)
               i.markers$cluster <- idents.all[i.ident]
@@ -356,7 +365,7 @@ Subtypist_merge <- function(object,
       }
 
       # printSteps(mergedNodes,column)
-      clu <- setClulterInf(resMarker,mergedNodes,i.resolution)
+      clu <- .setClulterInf(resMarker,mergedNodes,i.resolution)
       results <- rbind(results,clu)
     }
     reslist <- list(obj2,results)

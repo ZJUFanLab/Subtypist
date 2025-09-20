@@ -157,7 +157,7 @@
   return(list(first,second))
 }
 
-setClulterInf <- function(resMarker,mergedNodes,resolution){
+.setClulterInf <- function(resMarker,mergedNodes,resolution){
 
   # Inside setClulterInf function
   top_genes <- resMarker %>% dplyr::arrange(desc(avg_log2FC)) %>% dplyr::arrange(desc(specificity_score))%>% dplyr::arrange(desc(cluster)) %>%
