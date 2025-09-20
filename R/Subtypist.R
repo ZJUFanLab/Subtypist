@@ -123,6 +123,7 @@ Subtypist_merge <- function(object,
                          "Consider lowering the filtering thresholds (e.g., min.pct.1 or min.diff).\n"))
             resMarker <- rbind(resMarker,cluster_top_with_score)
             tmp[cluster + 1] <- .check_standard(cluster_top_with_score,tua = tua)
+            }
           }
           mergedNodes <- list()
           for(i in 1:clusterNum){
