@@ -67,12 +67,6 @@ Subtypist_merge <- function(object,
       Seurat::DefaultAssay(obj2) <- cluster_assay
       obj2 <- Seurat::FindClusters(object = obj2, resolution = i.resolution,verbose=FALSE,algorithm=algorithm)
       column <- paste(obj2@active.assay,"_snn_res.",as.character(i.resolution),sep="")
-      if(algorithm == 4){
-        obj2@meta.data[[column]] <- as.numeric(obj2@meta.data[[column]])
-        obj2@meta.data[[column]] <- obj2@meta.data[[column]] - 1
-        Idents(obj2) <- obj2@meta.data[[column]]
-        obj2@meta.data[[column]] <- factor(obj2@meta.data[[column]],levels = 0:(length(unique(obj2@meta.data[[column]]))-1))
-      }
       Newcolumn <- paste(prefix,"snn_res.",as.character(i.resolution),sep="")
       clusterNum <- length(unique(obj2@meta.data[[column]]))
       if(clusterNum == 1) next
@@ -118,12 +112,8 @@ Subtypist_merge <- function(object,
           resMarker <- tibble::tibble()
           for(cluster in 0:(clusterNum-1)){
             cluster_top_with_score <- getSpecificity_score(Allmarkers_top[Allmarkers_top$cluster==cluster,],min.pct.1= min.pct.1,min.diff = min.diff)# ,min.gap =
-            if(nrow(cluster_top_with_score) == 0) {
-              cat(paste0("Warning: No specific markers found for cluster '", cluster, "'.\n",
-                         "Consider lowering the filtering thresholds (e.g., min.pct.1 or min.diff).\n"))
             resMarker <- rbind(resMarker,cluster_top_with_score)
             tmp[cluster + 1] <- .check_standard(cluster_top_with_score,tua = tua)
-            }
           }
           mergedNodes <- list()
           for(i in 1:clusterNum){
@@ -229,7 +219,7 @@ Subtypist_merge <- function(object,
         # clu$resolution <- i.resolution
         # results <- rbind(results,clu)
         last.resolution = c(last.resolution,i.resolution)
-        # next # The number of clusters corresponding to this resolution has already appeared, omitting this merging process
+        #next # The number of clusters corresponding to this resolution has already appeared, omitting this merging process
       }
       last.resolution = list()
       last.resolution = c(last.resolution,i.resolution)
