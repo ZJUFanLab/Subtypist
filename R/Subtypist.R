@@ -102,7 +102,7 @@ Subtypist_merge <- function(object,
           markers.list <- list()
           all.markers.RNA <- tibble::tibble()
           for(i.ident in 1:length(idents.all)){
-            i.markers <- Seurat::FindMarkers(obj2,ident.1=idents.all[i.ident],only.pos=T,min.pct=0.1,verbose = FALSE,logfc.threshold=0.1) # other parameter logfc.threshold
+            i.markers <- Seurat::FindMarkers(obj2,ident.1=idents.all[i.ident],only.pos=T,min.pct=min.pct.1,verbose = FALSE,logfc.threshold=logfc.threshold) # other parameter logfc.threshold
             i.markers <- i.markers %>%
               dplyr::filter(p_val_adj < 0.05)
             i.markers$cluster <- idents.all[i.ident]
@@ -123,7 +123,6 @@ Subtypist_merge <- function(object,
                          "Consider lowering the filtering thresholds (e.g., min.pct.1 or min.diff).\n"))
             resMarker <- rbind(resMarker,cluster_top_with_score)
             tmp[cluster + 1] <- .check_standard(cluster_top_with_score,tua = tua)
-            }
           }
           mergedNodes <- list()
           for(i in 1:clusterNum){
@@ -264,7 +263,7 @@ Subtypist_merge <- function(object,
             all.markers.RNA <- all.markers.RNA[,c('cluster','gene','p_val','avg_log2FC','pct.1','pct.2','p_val_adj')]
           }else{
             for(i.ident in 1:length(idents.all)){
-              i.markers <- Seurat::FindMarkers(obj_join_layers,ident.1=idents.all[i.ident],only.pos=T,min.pct=0.01,assay=use.assay,verbose = FALSE,logfc.threshold=0.1) # other parameter logfc.threshold
+              i.markers <- Seurat::FindMarkers(obj_join_layers,ident.1=idents.all[i.ident],only.pos=T,min.pct=min.pct.1,assay=use.assay,verbose = FALSE,logfc.threshold=logfc.threshold) # other parameter logfc.threshold
               i.markers <- i.markers %>%
                 dplyr::filter(p_val_adj < 0.05)
               i.markers$cluster <- idents.all[i.ident]
