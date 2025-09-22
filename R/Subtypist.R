@@ -106,10 +106,10 @@ Subtypist_merge <- function(object,
             i.markers$cluster <- idents.all[i.ident]
             i.markers$gene <- rownames(i.markers)
             i.markers$p_val_adj
-            i.markers <- i.markers %>%
-              dplyr::mutate(
-                gene_marked = if_else(p_val_adj < 0.05, paste0(gene, "*"), gene)
-              )
+            # i.markers <- i.markers %>%
+             # dplyr::mutate(
+                #gene_marked = if_else(p_val_adj < 0.05, paste0(gene, "*"), gene)
+              #)
             all.markers.RNA <- rbind(all.markers.RNA,i.markers)
           }
           # all.markers.RNA$gene <- rownames(all.markers.RNA)
