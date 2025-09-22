@@ -102,10 +102,9 @@ Subtypist_merge <- function(object,
           markers.list <- list()
           all.markers.RNA <- tibble::tibble()
           for(i.ident in 1:length(idents.all)){
-            i.markers <- Seurat::FindMarkers(obj2,ident.1=idents.all[i.ident],only.pos=T,min.pct=min.pct.1,verbose = FALSE,logfc.threshold=logfc.threshold) # other parameter logfc.threshold
+            i.markers <- Seurat::FindMarkers(obj2,ident.1=idents.all[i.ident],only.pos=T,min.pct=0.1,verbose = FALSE,logfc.threshold=0.1) # other parameter logfc.threshold
             i.markers$cluster <- idents.all[i.ident]
             i.markers$gene <- rownames(i.markers)
-            i.markers$p_val_adj
             # i.markers <- i.markers %>%
              # dplyr::mutate(
                 #gene_marked = if_else(p_val_adj < 0.05, paste0(gene, "*"), gene)
@@ -264,8 +263,8 @@ Subtypist_merge <- function(object,
           }else{
             for(i.ident in 1:length(idents.all)){
               i.markers <- Seurat::FindMarkers(obj_join_layers,ident.1=idents.all[i.ident],only.pos=T,min.pct=min.pct.1,assay=use.assay,verbose = FALSE,logfc.threshold=logfc.threshold) # other parameter logfc.threshold
-              i.markers <- i.markers %>%
-                dplyr::filter(p_val_adj < 0.05)
+              # i.markers <- i.markers %>%
+              #   dplyr::filter(p_val_adj < 0.05)
               i.markers$cluster <- idents.all[i.ident]
               i.markers$gene <- rownames(i.markers)
               all.markers.RNA <- rbind(all.markers.RNA,i.markers)
