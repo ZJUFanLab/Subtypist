@@ -252,8 +252,7 @@ Subtypist_merge <- function(object,
             all.markers.RNA <- all.markers.RNA %>%
               dplyr::filter(
                 logFC >= 0.1,
-                pct_in >= 0.1,
-                padj < 0.05
+                pct_in >= 0.1
               )
             all.markers.RNA$pct_in <- all.markers.RNA$pct_in / 100
             all.markers.RNA$pct_out <- all.markers.RNA$pct_out / 100
