@@ -166,6 +166,10 @@ Subtypist_merge <- function(object,
         obj2 <- .updateSeuratObj(obj=obj2,column = Newcolumn,combined.min=cluster.min,combined.max=cluster.max,clusterNum=clusterNum)
         # Update thr MarkersList
         Seurat::Idents(obj2) <- Newcolumn
+        if(clusterNum == 2){
+          cat(paste0('Resolution ',i.resolution, ' produced a single cluster and no marker genes were identified; skipping this resolution.'))
+          break
+        }
         newCluster_marker <- Seurat::FindMarkers(obj2, ident.1 = cluster.min, ident.2 = NULL,only.pos=T,min.pct=0,verbose = FALSE,logfc.threshold=0)
         newMarkers_top <- newCluster_marker %>% dplyr::top_n(n=n.top,wt=avg_log2FC)
         newMarkers_top <- getSpecificity_score(newMarkers_top,min.pct.1= min.pct.1,min.diff=min.diff)
