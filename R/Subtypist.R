@@ -102,7 +102,7 @@ Subtypist_merge <- function(object,
           markers.list <- list()
           all.markers.RNA <- tibble::tibble()
           for(i.ident in 1:length(idents.all)){
-            i.markers <- Seurat::FindMarkers(obj2,ident.1=idents.all[i.ident],only.pos=T,min.pct=0.1,verbose = FALSE,logfc.threshold=0.1) # other parameter logfc.threshold
+            i.markers <- Seurat::FindMarkers(obj2,ident.1=idents.all[i.ident],only.pos=F,min.pct=0.1,verbose = FALSE,logfc.threshold=0.1) # other parameter logfc.threshold
             i.markers$cluster <- idents.all[i.ident]
             i.markers$gene <- rownames(i.markers)
             # i.markers <- i.markers %>%
@@ -227,9 +227,6 @@ Subtypist_merge <- function(object,
       clusterNum <- length(unique(obj2@meta.data[[column]]))
       if(clusterNum == 1) next
       if(clustertmp[clusterNum]){
-        # results[unlist(map(results$resolution, ~identical(.,last.resolution))),]$resolution <- map(results[unlist(map(results$resolution, ~identical(.,last.resolution))),]$resolution,~c(.,i.resolution))
-        # clu$resolution <- i.resolution
-        # results <- rbind(results,clu)
         last.resolution = c(last.resolution,i.resolution)
         #next # The number of clusters corresponding to this resolution has already appeared, omitting this merging process
       }
@@ -252,7 +249,7 @@ Subtypist_merge <- function(object,
           # Before FindMarkers function
           if(accelerated == TRUE){
             obj_join_layers <- JoinLayers(obj2)
-            all.markers.RNA <-  presto::wilcoxauc(X = obj_join_layers,group.by = 'celltype',verbose = FALSE)
+            all.markers.RNA <-  presto::wilcoxauc(X = obj_join_layers,group.by = column,verbose = FALSE)
             all.markers.RNA <- all.markers.RNA %>%
               dplyr::filter(
                 logFC >= 0.1,
@@ -265,7 +262,7 @@ Subtypist_merge <- function(object,
             all.markers.RNA <- all.markers.RNA[,c('cluster','gene','p_val','avg_log2FC','pct.1','pct.2','p_val_adj')]
           }else{
             for(i.ident in 1:length(idents.all)){
-              i.markers <- Seurat::FindMarkers(obj_join_layers,ident.1=idents.all[i.ident],only.pos=T,min.pct=min.pct.1,assay=use.assay,verbose = FALSE,logfc.threshold=logfc.threshold) # other parameter logfc.threshold
+              i.markers <- Seurat::FindMarkers(obj_join_layers,ident.1=idents.all[i.ident],only.pos=F,min.pct=0.1,assay=use.assay,verbose = FALSE,logfc.threshold=0.1) # other parameter logfc.threshold
               # i.markers <- i.markers %>%
               #   dplyr::filter(p_val_adj < 0.05)
               i.markers$cluster <- idents.all[i.ident]
@@ -333,8 +330,7 @@ Subtypist_merge <- function(object,
           all.markers.RNA <- all.markers.RNA %>%
             dplyr::filter(
               logFC >= 0.1,
-              pct_in >= 0.1,
-              padj < 0.05
+              pct_in >= 0.1
             )
           all.markers.RNA$pct_in <- all.markers.RNA$pct_in / 100
           all.markers.RNA$pct_out <- all.markers.RNA$pct_out / 100

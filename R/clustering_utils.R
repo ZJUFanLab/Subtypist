@@ -226,3 +226,95 @@ getSpecificity_score <- function(markers_top,min.pct.1=0.1,min.diff=0,min.avg_lo
   markers_top <- dplyr::arrange(markers_top,desc(specificity_score))
   return(markers_top)
 }
+.setClulterInf <- function(resMarker, mergedNodes, resolution, regulation = c("up", "down", "both"),n.top = 3) {
+  regulation <- match.arg(regulation)
+
+  # Adjust sorting direction based on regulation
+  if (regulation == "down") {
+    resMarker <- resMarker %>%
+      dplyr::arrange(cluster, specificity_score, avg_log2FC)
+  } else {
+    resMarker <- resMarker %>%
+      dplyr::arrange(cluster, desc(specificity_score), desc(avg_log2FC))
+  }
+
+  # Select top n marker genes per cluster
+  top_genes <- resMarker %>%
+    dplyr::group_by(cluster) %>%
+    dplyr::slice_max(order_by = specificity_score, n = n.top, with_ties = FALSE)
+
+  merge_cluster <- unique(top_genes$cluster)
+
+  molecular_phenotype <- aggregate(top_genes$gene, by = list(type = top_genes$cluster), list)[-1]
+  molecular_phenotype <- tibble::tibble(purrr::map(molecular_phenotype$x, ~ head(.x, n.top)))
+
+  genes_score <- resMarker %>% dplyr::group_by(cluster)
+  genes_score.top <- genes_score %>%
+    dplyr::group_by(cluster) %>%
+    dplyr::slice_max(order_by = specificity_score, n = n.top, with_ties = FALSE)
+
+  score <- aggregate(genes_score.top$specificity_score, by = list(type = genes_score.top$cluster), sum)[,-1]
+
+  clu <- cbind(
+    resolution = rep(resolution, length(merge_cluster)),
+    tibble::tibble(merge_cluster = sort(merge_cluster, decreasing = FALSE)),
+    initial_cluster = tibble::tibble(purrr::map(mergedNodes, .f = function(x) purrr::map(x, .f = function(y) y - 1))),
+    molecular_phenotype = molecular_phenotype,
+    Score = score
+  )
+
+  colnames(clu) <- c("resolution", "merged cluster", "initial cluster", "phenotypic molecules", "Score")
+  return(clu)
+}
+getSpecificity_score <- function(markers_top,
+                                 min.pct.1 = 0.1,
+                                 min.diff = 0,
+                                 min.avg_log2FC = 0.5,
+                                 regulation = c("up", "down", "both")) {
+  regulation <- match.arg(regulation)
+
+  b <- max(min.diff, 0.5)
+  x1 <- markers_top$pct.1 - markers_top$pct.2
+  markers_top$specificity_score <- 0
+
+  if (regulation == "up") {
+    valid <- markers_top$avg_log2FC > 0
+  } else if (regulation == "down") {
+    valid <- markers_top$avg_log2FC < 0
+  } else {
+    valid <- rep(TRUE, nrow(markers_top))  # both: 不限制上下调
+  }
+
+  df <- markers_top[valid, ]
+
+  if (nrow(df[x1[valid] >= b, ]) > 0) {
+    idx <- which(valid & x1 >= b)
+    markers_top$specificity_score[idx] <- (markers_top$pct.1[idx] - markers_top$pct.2[idx]) * markers_top$avg_log2FC[idx]
+  }
+
+  if (nrow(df[x1[valid] < 0.25, ]) > 0) {
+    idx <- which(valid & x1 < 0.25)
+    markers_top$specificity_score[idx] <- 0
+  }
+
+  idx <- which(valid & x1 >= 0.25 & x1 < b & markers_top$pct.1 <= 0.5)
+  if (length(idx) > 0) {
+    markers_top$specificity_score[idx] <- (markers_top$pct.1[idx] - markers_top$pct.2[idx]) * markers_top$avg_log2FC[idx]
+  }
+
+
+  idx <- which(valid & x1 >= 0.25 & x1 < b & markers_top$pct.1 > 0.5 & markers_top$avg_log2FC >= min.avg_log2FC)
+  if (length(idx) > 0) {
+    markers_top$specificity_score[idx] <- (markers_top$pct.1[idx] - markers_top$pct.2[idx]) * markers_top$avg_log2FC[idx]
+  }
+
+
+  idx <- which(valid & x1 >= 0.25 & x1 < b & markers_top$pct.1 > 0.5 & markers_top$avg_log2FC < min.avg_log2FC)
+  if (length(idx) > 0) {
+    markers_top$specificity_score[idx] <- (markers_top$pct.1[idx] - markers_top$pct.2[idx]) * markers_top$avg_log2FC[idx]
+  }
+
+  # 按分数降序排序
+  markers_top <- dplyr::arrange(markers_top, desc(specificity_score))
+  return(markers_top)
+}
