@@ -37,7 +37,8 @@ Subtypist_merge <- function(object,
                             accelerated = FALSE,
                             algorithm = 1,
                             tua = 0,
-                            verbose = FALSE)
+                            verbose = FALSE,
+                            regulation = 'up')
 {
   if(substr(packageVersion('Seurat'),1,1) == '4'){
     if(!(is(object, "Seurat") || is(object, "SeuratObject"))){
@@ -119,7 +120,7 @@ Subtypist_merge <- function(object,
           # markers with specificial score and tmp
           resMarker <- tibble::tibble()
           for(cluster in 0:(clusterNum-1)){
-            cluster_top_with_score <- getSpecificity_score(Allmarkers_top[Allmarkers_top$cluster==cluster,],min.pct.1= min.pct.1,min.diff = min.diff)# ,min.gap =
+            cluster_top_with_score <- getSpecificity_score(Allmarkers_top[Allmarkers_top$cluster==cluster,],min.pct.1= min.pct.1,min.diff = min.diff,regulation=regulation)# ,min.gap =
             resMarker <- rbind(resMarker,cluster_top_with_score)
             tmp[cluster + 1] <- .check_standard(cluster_top_with_score,tua = tua)
           }
@@ -188,7 +189,7 @@ Subtypist_merge <- function(object,
       }
 
       # printSteps(mergedNodes,column)
-      clu <- .setClulterInf(resMarker,mergedNodes,i.resolution)
+      clu <- .setClulterInf(resMarker,mergedNodes,i.resolution,regulation = regulation)
       results <- rbind(results,clu)
     }
     reslist <- list(obj2,results)
@@ -278,7 +279,7 @@ Subtypist_merge <- function(object,
           # markers with specificial score and tmp
           resMarker <- tibble::tibble()
           for(cluster in 0:(clusterNum-1)){
-            cluster_top_with_score <- getSpecificity_score(Allmarkers_top[Allmarkers_top$cluster==cluster,],min.pct.1= min.pct.1,min.diff = 0.4)# ,min.gap =
+            cluster_top_with_score <- getSpecificity_score(Allmarkers_top[Allmarkers_top$cluster==cluster,],min.pct.1= min.pct.1,min.diff = 0.4,regulation=regulation)# ,min.gap =
             resMarker <- rbind(resMarker,cluster_top_with_score)
             tmp[cluster + 1] <- .check_standard(cluster_top_with_score,tua = tua)
           }
@@ -363,7 +364,7 @@ Subtypist_merge <- function(object,
       }
 
       # printSteps(mergedNodes,column)
-      clu <- .setClulterInf(resMarker,mergedNodes,i.resolution)
+      clu <- .setClulterInf(resMarker,mergedNodes,i.resolution,regulation=regulation)
       results <- rbind(results,clu)
     }
     reslist <- list(obj2,results)
