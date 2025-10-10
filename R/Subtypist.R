@@ -193,7 +193,7 @@ Subtypist_merge <- function(object,
       }
 
       # printSteps(mergedNodes,column)
-      clu <- .setClulterInf(resMarker,mergedNodes,i.resolution,regulation = regulation)
+      clu <- .setClulterInf(resMarker,mergedNodes,i.resolution,regulation = regulation,top_k = top_k)
       results <- rbind(results,clu)
     }
     reslist <- list(obj2,results)
@@ -372,7 +372,7 @@ Subtypist_merge <- function(object,
       }
 
       # printSteps(mergedNodes,column)
-      clu <- .setClulterInf(resMarker,mergedNodes,i.resolution,regulation=regulation)
+      clu <- .setClulterInf(resMarker,mergedNodes,i.resolution,regulation=regulation,top_k=top_k)
       results <- rbind(results,clu)
     }
     reslist <- list(obj2,results)

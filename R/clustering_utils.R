@@ -254,7 +254,7 @@ getSpecificity_score <- function(markers_top,min.pct.1=0.1,min.diff=0,min.avg_lo
   markers_top <- dplyr::arrange(markers_top,desc(specificity_score))
   return(markers_top)
 }
-.setClulterInf <- function(resMarker, mergedNodes, resolution, regulation = c("up", "down", "both"),top_k = top_k) {
+.setClulterInf <- function(resMarker, mergedNodes, resolution, regulation = c("up", "down", "both"),top_k = 3) {
   regulation <- match.arg(regulation)
 
   # Adjust sorting direction based on regulation
