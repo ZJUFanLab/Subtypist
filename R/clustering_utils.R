@@ -49,7 +49,7 @@
     for(j in (i+1):clusterNum){
       if(regulation == 'both'){
         up <- resMarker[resMarker$avg_log2FC > 0,]
-        down <- resMarker[resMarker$avg_log2FC < 0]
+        down <- resMarker[resMarker$avg_log2FC < 0,]
         j_up <- .getWeightedJaccard(up,i-1,j-1)
         j_down <- .getWeightedJaccard(down,i-1,j-1)
         JaccardScore <- mean(c(j_up, j_down), na.rm = TRUE)

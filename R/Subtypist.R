@@ -119,7 +119,7 @@ Subtypist_merge <- function(object,
           Allmarkers_top <- all.markers.RNA %>% dplyr::group_by(cluster) %>%  dplyr::slice_max(order_by = abs(avg_log2FC), n = n.top)
           Allmarkers_top$cluster <- as.numeric(levels(Allmarkers_top$cluster))[Allmarkers_top$cluster]
           # Distance Matrix
-          M <- .getInitWeightedJaccardMatrix(clusterNum,Allmarkers_top)
+          M <- .getInitWeightedJaccardMatrix(clusterNum,Allmarkers_top,regulation=regulation)
           # markers with specificial score and tmp
           resMarker <- tibble::tibble()
           for(cluster in 0:(clusterNum-1)){
@@ -281,7 +281,7 @@ Subtypist_merge <- function(object,
           Allmarkers_top$cluster <- as.numeric(as.character(Allmarkers_top$cluster))
           # Allmarkers_top$cluster <- as.numeric(levels(Allmarkers_top$cluster))[Allmarkers_top$cluster]
           # Distance Matrix
-          M <- .getInitWeightedJaccardMatrix(clusterNum,Allmarkers_top)
+          M <- .getInitWeightedJaccardMatrix(clusterNum,Allmarkers_top,regulation=regulation)
           # markers with specificial score and tmp
           resMarker <- tibble::tibble()
           for(cluster in 0:(clusterNum-1)){
