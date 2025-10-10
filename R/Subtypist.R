@@ -38,7 +38,8 @@ Subtypist_merge <- function(object,
                             algorithm = 1,
                             tua = 0,
                             verbose = FALSE,
-                            regulation = 'up')
+                            regulation = c("up", "down", "both"),
+                            top_k = 3)
 {
   if(substr(packageVersion('Seurat'),1,1) == '4'){
     if(!(is(object, "Seurat") || is(object, "SeuratObject"))){
@@ -53,6 +54,7 @@ Subtypist_merge <- function(object,
     if(!use.assay %in% names(object@assays)){
       stop("Error: The assay you selected is not in the Object! ")
     }
+    regulation <- match.arg(regulation)
     INF = 1e9
     obj2 <- object
     if(use.assay == "SCT"){
@@ -102,8 +104,9 @@ Subtypist_merge <- function(object,
           idents.all <- sort(x = unique(x = Seurat::Idents(object = obj2)))
           markers.list <- list()
           all.markers.RNA <- tibble::tibble()
+          only.pos <- (regulation == "up")
           for(i.ident in 1:length(idents.all)){
-            i.markers <- Seurat::FindMarkers(obj2,ident.1=idents.all[i.ident],only.pos=F,min.pct=0.1,verbose = FALSE,logfc.threshold=0.1) # other parameter logfc.threshold
+            i.markers <- Seurat::FindMarkers(obj2,ident.1=idents.all[i.ident],only.pos=only.pos,min.pct=0.1,verbose = FALSE,logfc.threshold=0.1) # other parameter logfc.threshold
             i.markers$cluster <- idents.all[i.ident]
             i.markers$gene <- rownames(i.markers)
             # i.markers <- i.markers %>%
@@ -113,7 +116,7 @@ Subtypist_merge <- function(object,
             all.markers.RNA <- rbind(all.markers.RNA,i.markers)
           }
           # all.markers.RNA$gene <- rownames(all.markers.RNA)
-          Allmarkers_top <- all.markers.RNA %>% dplyr::group_by(cluster) %>%  dplyr::top_n(n=n.top,wt=avg_log2FC)
+          Allmarkers_top <- all.markers.RNA %>% dplyr::group_by(cluster) %>%  dplyr::slice_max(order_by = abs(avg_log2FC), n = n.top)
           Allmarkers_top$cluster <- as.numeric(levels(Allmarkers_top$cluster))[Allmarkers_top$cluster]
           # Distance Matrix
           M <- .getInitWeightedJaccardMatrix(clusterNum,Allmarkers_top)
@@ -171,8 +174,9 @@ Subtypist_merge <- function(object,
           cat(paste0('Resolution ',i.resolution, ' produced a single cluster and no marker genes were identified; skipping this resolution.'))
           break
         }
-        newCluster_marker <- Seurat::FindMarkers(obj2, ident.1 = cluster.min, ident.2 = NULL,only.pos=T,min.pct=0,verbose = FALSE,logfc.threshold=0)
-        newMarkers_top <- newCluster_marker %>% dplyr::top_n(n=n.top,wt=avg_log2FC)
+        only.pos <- (regulation == "up")
+        newCluster_marker <- Seurat::FindMarkers(obj2, ident.1 = cluster.min, ident.2 = NULL,only.pos=only.pos,min.pct=0,verbose = FALSE,logfc.threshold=0)
+        newMarkers_top <- newCluster_marker %>% dplyr::slice_max(order_by = abs(avg_log2FC), n = n.top)
         newMarkers_top <- getSpecificity_score(newMarkers_top,min.pct.1= min.pct.1,min.diff=min.diff)
 
         newMarkers_top$gene <- rownames(newMarkers_top)
@@ -196,6 +200,7 @@ Subtypist_merge <- function(object,
     names(reslist) <- c('Object','result.table')
     return(reslist)
   }else if(substr(packageVersion('Seurat'),1,1) == '5'){
+    regulation <- match.arg(regulation)
     if(!(is(object, "Seurat") || is(object, "SeuratObject"))){
       stop("Error: Please input a Seurat or SeuratObject!")
     }
@@ -247,7 +252,7 @@ Subtypist_merge <- function(object,
           idents.all <- sort(x = unique(x = Seurat::Idents(object = obj2)))
           markers.list <- list()
           all.markers.RNA <- tibble::tibble()
-          # Before FindMarkers function
+          only.pos <- (regulation == "up")
           if(accelerated == TRUE){
             obj_join_layers <- JoinLayers(obj2)
             all.markers.RNA <-  presto::wilcoxauc(X = obj_join_layers,group.by = column,verbose = FALSE)
@@ -261,9 +266,10 @@ Subtypist_merge <- function(object,
             colnames(all.markers.RNA) <- c('gene','cluster','avgExpr','avg_log2FC','statistic','auc',
                                            'p_val','p_val_adj','pct.1','pct.2')
             all.markers.RNA <- all.markers.RNA[,c('cluster','gene','p_val','avg_log2FC','pct.1','pct.2','p_val_adj')]
+            all.markers.RNA <- if (only.pos) subset(all.markers.RNA, avg_log2FC > 0) else all.markers.RNA
           }else{
             for(i.ident in 1:length(idents.all)){
-              i.markers <- Seurat::FindMarkers(obj_join_layers,ident.1=idents.all[i.ident],only.pos=F,min.pct=0.1,assay=use.assay,verbose = FALSE,logfc.threshold=0.1) # other parameter logfc.threshold
+              i.markers <- Seurat::FindMarkers(obj_join_layers,ident.1=idents.all[i.ident],only.pos=only.pos,min.pct=0.1,assay=use.assay,verbose = FALSE,logfc.threshold=0.1) # other parameter logfc.threshold
               # i.markers <- i.markers %>%
               #   dplyr::filter(p_val_adj < 0.05)
               i.markers$cluster <- idents.all[i.ident]
@@ -271,7 +277,7 @@ Subtypist_merge <- function(object,
               all.markers.RNA <- rbind(all.markers.RNA,i.markers)
             }
           }
-          Allmarkers_top <- all.markers.RNA %>% dplyr::group_by(cluster) %>%  dplyr::top_n(n=n.top,wt=avg_log2FC)
+          Allmarkers_top <- all.markers.RNA %>% dplyr::group_by(cluster) %>%  dplyr::slice_max(order_by = abs(avg_log2FC), n = n.top)
           Allmarkers_top$cluster <- as.numeric(as.character(Allmarkers_top$cluster))
           # Allmarkers_top$cluster <- as.numeric(levels(Allmarkers_top$cluster))[Allmarkers_top$cluster]
           # Distance Matrix
@@ -338,16 +344,18 @@ Subtypist_merge <- function(object,
           colnames(all.markers.RNA) <- c('gene','cluster','avgExpr','avg_log2FC','statistic','auc',
                                          'p_val','p_val_adj','pct.1','pct.2')
           all.markers.RNA <- all.markers.RNA[,c('cluster','gene','p_val','avg_log2FC','pct.1','pct.2','p_val_adj')]
-          Allmarkers_top <- all.markers.RNA %>% dplyr::group_by(cluster) %>%  dplyr::top_n(n=300,wt=avg_log2FC)
+          all.markers.RNA <- if (only.pos) subset(all.markers.RNA, avg_log2FC > 0) else all.markers.RNA
+          Allmarkers_top <- all.markers.RNA %>% dplyr::group_by(cluster) %>%  dplyr::slice_max(order_by = abs(avg_log2FC), n = n.top)
           Allmarkers_top$cluster <- as.numeric(Allmarkers_top$cluster)
+
           resMarker <- tibble::tibble()
           for(cluster in 0:(clusterNum-1)){
             cluster_top_with_score <- getSpecificity_score(Allmarkers_top[Allmarkers_top$cluster==cluster,],min.pct.1= min.pct.1,min.diff = min.diff)# ,min.gap =
             resMarker <- rbind(resMarker,cluster_top_with_score)
           }
         }else{
-          newCluster_marker <- Seurat::FindMarkers(obj_join_layers, ident.1 = cluster.min, ident.2 = NULL,only.pos=T,min.pct=0,verbose = FALSE,logfc.threshold=0)
-          newMarkers_top <- newCluster_marker %>% dplyr::top_n(n=n.top,wt=avg_log2FC)
+          newCluster_marker <- Seurat::FindMarkers(obj_join_layers, ident.1 = cluster.min, ident.2 = NULL,only.pos=T,min.pct=0,verbose = FALSE,logfc.threshold=0.1)
+          newMarkers_top <- newCluster_marker %>% dplyr::slice_max(order_by = abs(avg_log2FC), n = n.top)
           newMarkers_top <- getSpecificity_score(newMarkers_top,min.pct.1= min.pct.1,min.diff=min.diff)
           newMarkers_top$gene <- rownames(newMarkers_top)
           resMarker <- .updateMarkerlist(resMarker,combined.min=cluster.min,combined.max=cluster.max,newMarkers_top,clusterNum) # newMarkers_top with cluster

@@ -27,16 +27,56 @@
   return(intersections / unions)
 }
 
-.getWeightedJaccard <- function(cluster_top,a,b){
-  unions <- length(union(cluster_top[cluster_top$cluster==a,]$gene,cluster_top[cluster_top$cluster==b,]$gene))
+.getWeightedJaccard <- function(cluster_top, a, b) {
+  genes_a <- cluster_top$gene[cluster_top$cluster == a]
+  genes_b <- cluster_top$gene[cluster_top$cluster == b]
 
-  intersectGene <- intersect(cluster_top[cluster_top$cluster==a,]$gene,cluster_top[cluster_top$cluster==b,]$gene)
-  # get avg_log2FC
+  unions <- length(union(genes_a, genes_b))
+  intersectGene <- intersect(genes_a, genes_b)
 
-  if(length(intersectGene) == 0){return(0)}
-  intersectInf <- cluster_top[(cluster_top$cluster==b | cluster_top$cluster==a ) & cluster_top$gene %in% intersectGene,]
-  return(sum(intersectInf$avg_log2FC) / unions)
+  if (length(intersectGene) == 0) return(0)
+
+  intersectInf <- cluster_top[
+    cluster_top$cluster %in% c(a, b) & cluster_top$gene %in% intersectGene,]
+
+  return(sum(abs(intersectInf$avg_log2FC)) / unions)
 }
+
+.getInitWeightedJaccardMatrix <- function(clusterNum, resMarker, regulation = c("both", "up", "down")) {
+  regulation <- match.arg(regulation)
+  M <- matrix(0, nrow = clusterNum, ncol = clusterNum)
+  for(i in 1:(clusterNum-1)){
+    for(j in (i+1):clusterNum){
+      if(regulation == 'both'){
+        up <- resMarker[resMarker$avg_log2FC > 0,]
+        down <- resMarker[resMarker$avg_log2FC < 0]
+        j_up <- .getWeightedJaccard(up,i-1,j-1)
+        j_down <- .getWeightedJaccard(down,i-1,j-1)
+        JaccardScore <- mean(c(j_up, j_down), na.rm = TRUE)
+      }else{
+        JaccardScore <- .getWeightedJaccard(resMarker,i-1,j-1)
+      }
+      M[i,j] <- M[j,i] <- JaccardScore
+    }
+  }
+  diag(M) <- 0
+  return(M)
+}
+
+
+# .getInitWeightedJaccardMatrix <- function(clusterNum,resMarker){
+#   M <- matrix(nrow=clusterNum,ncol=clusterNum)
+#   for(i in 1:(clusterNum-1)){
+#     M[i,i] <- 0
+#     for(j in (i+1):clusterNum){
+#       JaccardScore <- .getWeightedJaccard(resMarker,i-1,j-1)
+#       #break
+#       M[i,j] <- M[j,i] <- JaccardScore
+#     }
+#     M[j,j] <- 0
+#   }
+#   return(M)
+# }
 
 .getInitJaccardMatrix <- function(clusterNum,resMarker){
   M <- matrix(nrow=clusterNum,ncol=clusterNum)
@@ -54,19 +94,7 @@
   return(M)
 }
 
-.getInitWeightedJaccardMatrix <- function(clusterNum,resMarker){
-  M <- matrix(nrow=clusterNum,ncol=clusterNum)
-  for(i in 1:(clusterNum-1)){
-    M[i,i] <- 0
-    for(j in (i+1):clusterNum){
-      JaccardScore <- .getWeightedJaccard(resMarker,i-1,j-1)
-      #break
-      M[i,j] <- M[j,i] <- JaccardScore
-    }
-    M[j,j] <- 0
-  }
-  return(M)
-}
+
 
 .updateDistanceMatrix <- function(M,Index.min,Index.max,resMarker,clusterNum,operation){ # operation传入函数
   # delete combined.max row
@@ -226,7 +254,7 @@ getSpecificity_score <- function(markers_top,min.pct.1=0.1,min.diff=0,min.avg_lo
   markers_top <- dplyr::arrange(markers_top,desc(specificity_score))
   return(markers_top)
 }
-.setClulterInf <- function(resMarker, mergedNodes, resolution, regulation = c("up", "down", "both"),n.top = 3) {
+.setClulterInf <- function(resMarker, mergedNodes, resolution, regulation = c("up", "down", "both"),top_k = top_k) {
   regulation <- match.arg(regulation)
 
   # Adjust sorting direction based on regulation
@@ -241,17 +269,17 @@ getSpecificity_score <- function(markers_top,min.pct.1=0.1,min.diff=0,min.avg_lo
   # Select top n marker genes per cluster
   top_genes <- resMarker %>%
     dplyr::group_by(cluster) %>%
-    dplyr::slice_max(order_by = specificity_score, n = n.top, with_ties = FALSE)
+    dplyr::slice_max(order_by = specificity_score, n = top_k, with_ties = FALSE)
 
   merge_cluster <- unique(top_genes$cluster)
 
   molecular_phenotype <- aggregate(top_genes$gene, by = list(type = top_genes$cluster), list)[-1]
-  molecular_phenotype <- tibble::tibble(purrr::map(molecular_phenotype$x, ~ head(.x, n.top)))
+  molecular_phenotype <- tibble::tibble(purrr::map(molecular_phenotype$x, ~ head(.x, top_k)))
 
   genes_score <- resMarker %>% dplyr::group_by(cluster)
   genes_score.top <- genes_score %>%
     dplyr::group_by(cluster) %>%
-    dplyr::slice_max(order_by = specificity_score, n = n.top, with_ties = FALSE)
+    dplyr::slice_max(order_by = specificity_score, n = top_k, with_ties = FALSE)
 
   score <- aggregate(genes_score.top$specificity_score, by = list(type = genes_score.top$cluster), sum)[,-1]
 
