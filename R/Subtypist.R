@@ -175,7 +175,7 @@ Subtypist_merge <- function(object,
           break
         }
         only.pos <- (regulation == "up")
-        newCluster_marker <- Seurat::FindMarkers(obj2, ident.1 = cluster.min, ident.2 = NULL,only.pos=only.pos,min.pct=0,verbose = FALSE,logfc.threshold=0)
+        newCluster_marker <- Seurat::FindMarkers(obj2, ident.1 = cluster.min, ident.2 = NULL,only.pos=only.pos,min.pct=0,verbose = FALSE)
         newMarkers_top <- newCluster_marker %>% dplyr::slice_max(order_by = abs(avg_log2FC), n = n.top)
         newMarkers_top <- getSpecificity_score(newMarkers_top,min.pct.1= min.pct.1,min.diff=min.diff)
 
@@ -258,7 +258,6 @@ Subtypist_merge <- function(object,
             all.markers.RNA <-  presto::wilcoxauc(X = obj_join_layers,group.by = column,verbose = FALSE)
             all.markers.RNA <- all.markers.RNA %>%
               dplyr::filter(
-                logFC >= 0.1,
                 pct_in >= 0.1
               )
             all.markers.RNA$pct_in <- all.markers.RNA$pct_in / 100
@@ -269,7 +268,7 @@ Subtypist_merge <- function(object,
             all.markers.RNA <- if (only.pos) subset(all.markers.RNA, avg_log2FC > 0) else all.markers.RNA
           }else{
             for(i.ident in 1:length(idents.all)){
-              i.markers <- Seurat::FindMarkers(obj_join_layers,ident.1=idents.all[i.ident],only.pos=only.pos,min.pct=0.1,assay=use.assay,verbose = FALSE,logfc.threshold=0.1) # other parameter logfc.threshold
+              i.markers <- Seurat::FindMarkers(obj_join_layers,ident.1=idents.all[i.ident],only.pos=only.pos,min.pct=0.1,assay=use.assay,verbose = FALSE,0) # other parameter logfc.threshold
               # i.markers <- i.markers %>%
               #   dplyr::filter(p_val_adj < 0.05)
               i.markers$cluster <- idents.all[i.ident]
@@ -333,10 +332,9 @@ Subtypist_merge <- function(object,
         Seurat::Idents(obj2) <- Newcolumn
         if(accelerated == TRUE){
           obj_join_layers <- JoinLayers(obj2)
-          all.markers.RNA <-  presto::wilcoxauc(X = obj_join_layers,group.by = 'celltype',verbose = FALSE)
+          all.markers.RNA <-  presto::wilcoxauc(X = obj_join_layers,group.by = column,verbose = FALSE)
           all.markers.RNA <- all.markers.RNA %>%
             dplyr::filter(
-              logFC >= 0.1,
               pct_in >= 0.1
             )
           all.markers.RNA$pct_in <- all.markers.RNA$pct_in / 100
