@@ -291,7 +291,7 @@ getSpecificity_score <- function(markers_top,min.pct.1=0.1,min.diff=0,min.avg_lo
     Score = score
   )
 
-  colnames(clu) <- c("resolution", "merged cluster", "initial cluster", "phenotypic molecules", "Score")
+  colnames(clu) <- c("resolution", "merged_cluster", "initial_cluster", "phenotypic_molecules", "Score")
   return(clu)
 }
 getSpecificity_score <- function(markers_top,

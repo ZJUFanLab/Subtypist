@@ -400,11 +400,11 @@ sortScore <- function(result.table,.f=mean){
 #'
 #' @param object A Seurat object.
 #' @param resolution A vector of resolution values at which to assign annotations.
-#' @param result.table A data frame containing Subtypist results with `resolution`, `merge_cluster`, and `molecular_phenotype`.
+#' @param result.table A data frame containing Subtypist results with `resolution`, `merged_cluster`, and `phenotypic_molecules`.
 #' @param result.list result list from Subtypist_merge
 #' @param prefix Prefix for new metadata columns. Default is `"Subtypist"`.
 #' @param suffix A character suffix to append to the new annotation column names
-#' @param select_index A named integer vector specifying which phenotype to select for each class (merge_cluster). Names should match cluster IDs in the `merge_cluster` column of the result table.
+#' @param select_index A named integer vector specifying which phenotype to select for each class (merged_cluster). Names should match cluster IDs in the `merged_cluster` column of the result table.
 #' @param meta.prefix The prefix used for new column names added to the metadata.
 #' @param value.suffix= The suffix used for added to the new columns
 #'
@@ -413,9 +413,9 @@ sortScore <- function(result.table,.f=mean){
 #'
 #' @examples
 #' library(Seurat)
-#' res.table = tibble::tibble(resolution =c(0.1,0.1,0.1),merge_cluster = c(0,1,2),initial_cluster = c(0,1,2),molecular_phenotype = c('G1','G2','G3'),Score = c(1,2,4))
+#' res.table = tibble::tibble(resolution =c(0.1,0.1,0.1),merged_cluster = c(0,1,2),initial_cluster = c(0,1,2),phenotypic_molecules = c('G1','G2','G3'),Score = c(1,2,4))
 #' object <- AddSubtypist(object =res[[1]],result.table=res.table,resolution = c(0.1))
-AddSubtypist <- function(object=NULL,resolution=NULL,result.table=NULL,result.list=NULL,prefix='Subtypist',suffix = NULL,select_index = NULL,meta.prefix='molecular_phenotype_',value.suffix=NULL){
+AddSubtypist <- function(object=NULL,resolution=NULL,result.table=NULL,result.list=NULL,prefix='Subtypist',suffix = NULL,select_index = NULL,meta.prefix='phenotypic_molecules_',value.suffix=NULL){
   if(!is.null(result.list)){
     object <- result.list[['Object']]
     result.table <- result.list[['result.table']]
@@ -431,7 +431,7 @@ AddSubtypist <- function(object=NULL,resolution=NULL,result.table=NULL,result.li
   if(is.null(resolution)){
     stop("Please provide the resolution at which annotations need to be added!")
   }
-  result <- result.table[c('resolution','merge_cluster','molecular_phenotype')]
+  result <- result.table[c('resolution','merged_cluster','phenotypic_molecules')]
   result$resolution = as.character(result$resolution)
   result <- result[result$resolution %in% as.character(resolution),]
   # If select_index is provided, select the specified molecular phenotype.
@@ -442,23 +442,23 @@ AddSubtypist <- function(object=NULL,resolution=NULL,result.table=NULL,result.li
     if (length(select_index) != nrow(result[result$resolution == as.character(resolution), ])) {
       stop("Length of 'select_index' must match the number of clusters at resolution ", x, ".")
     }
-    # select_index should be a named vector where names correspond to merge_cluster identifiers.
+    # select_index should be a named vector where names correspond to merged_cluster identifiers.
     result <- result %>%
-      dplyr::group_by(merge_cluster) %>%
+      dplyr::group_by(`merged_cluster`) %>%
       dplyr::mutate(
-        selected_index = select_index[as.character(merge_cluster)],
-        molecular_phenotype = purrr::map2_chr(molecular_phenotype, selected_index, function(x, idx) {
+        selected_index = select_index[as.character(`merged_cluster`)],
+        phenotypic_molecules = purrr::map2_chr(`phenotypic_molecules`, selected_index, function(x, idx) {
           if (length(x) >= idx) x[[idx]] else NA_character_
         })
       ) %>% dplyr::ungroup()
   } else {
     # By default, concatenate all molecular phenotypes.
-    if (is.list(result$molecular_phenotype)) {
-      result$molecular_phenotype <- purrr::map_chr(result$molecular_phenotype, ~paste(.x, collapse = " / "))
+    if (is.list(result$phenotypic_molecules)) {
+      result$phenotypic_molecules <- purrr::map_chr(result[['phenotypic_molecules']], ~paste(.x, collapse = " / "))
     }
   }
   if (!is.null(value.suffix)){
-    result$molecular_phenotype <- paste0(result$molecular_phenotype,value.suffix)
+    result$phenotypic_molecules <- paste0(result$phenotypic_molecules,value.suffix)
   }
   Addmeta <- lapply(
     X = resolution,
@@ -473,8 +473,8 @@ AddSubtypist <- function(object=NULL,resolution=NULL,result.table=NULL,result.li
       if (nrow(resMarkersTable) == 0) {
         warning(paste0("No annotations found for resolution ", x, " in result.table"))
       }
-      resmeta <- dplyr::left_join(resmeta,resMarkersTable,by=c(Selected_resolution_Column='merge_cluster'))
-      resmeta <- resmeta[c("molecular_phenotype")]
+      resmeta <- dplyr::left_join(resmeta,resMarkersTable,by=c(Selected_resolution_Column='merged_cluster'))
+      resmeta <- resmeta[c("phenotypic_molecules")]
       colnames(resmeta) <- paste0(meta.prefix, x)
       return(resmeta)
     }
@@ -512,9 +512,9 @@ saveResults <- function(result.table,path,name)
     stop("'name' must be a non-empty string.")
   }
   # Format columns if present and are lists
-  if ("molecular_phenotype" %in% colnames(result.table) && is.list(result.table$molecular_phenotype)) {
-    result.table$molecular_phenotype <- purrr::map_chr(
-      result.table$molecular_phenotype, ~ paste(.x, collapse = " / ")
+  if ("phenotypic_molecules" %in% colnames(result.table) && is.list(result.table$phenotypic_molecules)) {
+    result.table$phenotypic_molecules <- purrr::map_chr(
+      result.table$phenotypic_molecules, ~ paste(.x, collapse = " / ")
     )
   }
 
