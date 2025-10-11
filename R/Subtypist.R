@@ -229,6 +229,12 @@ Subtypist_merge <- function(object,
       # Seurat::DefaultAssay(obj2) <- cluster_assay # FindNeighbor 去批次的基础上run
       obj2 <- Seurat::FindClusters(object = obj2, resolution = i.resolution,verbose=FALSE,algorithm=algorithm)
       column <- paste(obj2@active.assay,"_snn_res.",as.character(i.resolution),sep="")
+      if(algorithm == 4){
+        obj2@meta.data[[column]] <- as.numeric(obj2@meta.data[[column]])
+        obj2@meta.data[[column]] <- obj2@meta.data[[column]] - 1
+        Idents(obj2) <- obj2@meta.data[[column]]
+        obj2@meta.data[[column]] <- factor(obj2@meta.data[[column]],levels = 0:(length(unique(obj2@meta.data[[column]]))-1))
+      }
       Newcolumn <- paste(prefix,"snn_res.",as.character(i.resolution),sep="")
       clusterNum <- length(unique(obj2@meta.data[[column]]))
       if(clusterNum == 1) next
