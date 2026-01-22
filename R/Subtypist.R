@@ -276,7 +276,6 @@ Subtypist_merge <- function(object,
             all.markers.RNA <- if (only.pos) subset(all.markers.RNA, avg_log2FC > 0) else all.markers.RNA
           }else{
             for(i.ident in 1:length(idents.all)){
-              print(length(idents.all))
               i.markers <- Seurat::FindMarkers(obj_join_layers,ident.1=idents.all[i.ident],only.pos=only.pos,assay=use.assay,verbose = FALSE) # other parameter logfc.threshold
               # i.markers <- i.markers %>%
               #   dplyr::filter(p_val_adj < 0.05)
