@@ -1,7 +1,7 @@
 
 .check_standard <- function(resMarker,tua=0){
   temp <- FALSE
-  if(sum(resMarker$specificity_score) > tua) {
+  if(sum(abs(resMarker$specificity_score)) > tua) {
     temp = TRUE
   }
   return(temp)
@@ -296,7 +296,7 @@ getSpecificity_score <- function(markers_top,min.pct.1=0.1,min.diff=0,min.avg_lo
 }
 getSpecificity_score <- function(markers_top,
                                  min.pct.1 = 0.1,
-                                 min.diff = 0,
+                                 min.diff = 0.5,
                                  min.avg_log2FC = 0.5,
                                  regulation = c("up", "down", "both")) {
   regulation <- match.arg(regulation)
@@ -312,7 +312,7 @@ getSpecificity_score <- function(markers_top,
   } else {
     valid <- rep(TRUE, nrow(markers_top))  # both: 不限制上下调
   }
-
+  valid <- valid & (markers_top$pct.1 > markers_top$pct.2)
   df <- markers_top[valid, ]
 
   if (nrow(df[x1[valid] >= b, ]) > 0) {
@@ -330,12 +330,10 @@ getSpecificity_score <- function(markers_top,
     markers_top$specificity_score[idx] <- (markers_top$pct.1[idx] - markers_top$pct.2[idx]) * markers_top$avg_log2FC[idx]
   }
 
-
-  idx <- which(valid & x1 >= 0.25 & x1 < b & markers_top$pct.1 > 0.5 & markers_top$avg_log2FC >= min.avg_log2FC)
+  idx <- which(valid & x1 >= 0.25 & x1 < b & markers_top$pct.1 > 0.5 &  markers_top$avg_log2FC >= min.avg_log2FC)
   if (length(idx) > 0) {
     markers_top$specificity_score[idx] <- (markers_top$pct.1[idx] - markers_top$pct.2[idx]) * markers_top$avg_log2FC[idx]
   }
-
 
   idx <- which(valid & x1 >= 0.25 & x1 < b & markers_top$pct.1 > 0.5 & markers_top$avg_log2FC < min.avg_log2FC)
   if (length(idx) > 0) {

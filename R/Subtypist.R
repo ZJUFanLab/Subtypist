@@ -110,9 +110,9 @@ Subtypist_merge <- function(object,
             i.markers$cluster <- idents.all[i.ident]
             i.markers$gene <- rownames(i.markers)
             # i.markers <- i.markers %>%
-             # dplyr::mutate(
-                #gene_marked = if_else(p_val_adj < 0.05, paste0(gene, "*"), gene)
-              #)
+            # dplyr::mutate(
+            #gene_marked = if_else(p_val_adj < 0.05, paste0(gene, "*"), gene)
+            #)
             all.markers.RNA <- rbind(all.markers.RNA,i.markers)
           }
           # all.markers.RNA$gene <- rownames(all.markers.RNA)
@@ -228,6 +228,7 @@ Subtypist_merge <- function(object,
     for(i.resolution in seq(min.resolution,max.resolution,by=by)){
       # Seurat::DefaultAssay(obj2) <- cluster_assay # FindNeighbor 去批次的基础上run
       obj2 <- Seurat::FindClusters(object = obj2, resolution = i.resolution,verbose=FALSE,algorithm=algorithm)
+
       column <- paste(obj2@active.assay,"_snn_res.",as.character(i.resolution),sep="")
       if(algorithm == 4){
         obj2@meta.data[[column]] <- as.numeric(obj2@meta.data[[column]])
@@ -259,6 +260,7 @@ Subtypist_merge <- function(object,
           markers.list <- list()
           all.markers.RNA <- tibble::tibble()
           only.pos <- (regulation == "up")
+          obj_join_layers <- JoinLayers(obj2)
           if(accelerated == TRUE){
             obj_join_layers <- JoinLayers(obj2)
             all.markers.RNA <-  presto::wilcoxauc(X = obj_join_layers,group.by = column,verbose = FALSE)
@@ -274,7 +276,8 @@ Subtypist_merge <- function(object,
             all.markers.RNA <- if (only.pos) subset(all.markers.RNA, avg_log2FC > 0) else all.markers.RNA
           }else{
             for(i.ident in 1:length(idents.all)){
-              i.markers <- Seurat::FindMarkers(obj_join_layers,ident.1=idents.all[i.ident],only.pos=only.pos,min.pct=0.1,assay=use.assay,verbose = FALSE,0) # other parameter logfc.threshold
+              print(length(idents.all))
+              i.markers <- Seurat::FindMarkers(obj_join_layers,ident.1=idents.all[i.ident],only.pos=only.pos,assay=use.assay,verbose = FALSE) # other parameter logfc.threshold
               # i.markers <- i.markers %>%
               #   dplyr::filter(p_val_adj < 0.05)
               i.markers$cluster <- idents.all[i.ident]
@@ -396,7 +399,7 @@ Subtypist_merge <- function(object,
 #' @examples sortScore(res[[2]],mean)
 sortScore <- function(result.table,.f=mean){
   rank <- result.table %>% dplyr::group_by(resolution) %>%
-    dplyr::summarise(value = .f(Score))
+    dplyr::summarise(value = .f(abs(Score)))
   return(rank)
 }
 
