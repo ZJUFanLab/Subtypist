@@ -437,6 +437,7 @@ AddSubtypist <- function(object=NULL,resolution=NULL,result.table=NULL,result.li
   if(is.null(resolution)){
     stop("Please provide the resolution at which annotations need to be added!")
   }
+  result.table <- .standardize_subtypist_result_table(result.table)
   result <- result.table[c('resolution','merged_cluster','phenotypic_molecules')]
   result$resolution = as.character(result$resolution)
   result <- result[result$resolution %in% as.character(resolution),]
@@ -446,7 +447,7 @@ AddSubtypist <- function(object=NULL,resolution=NULL,result.table=NULL,result.li
       stop("'select_index' can only be used when a single resolution is specified.")
     }
     if (length(select_index) != nrow(result[result$resolution == as.character(resolution), ])) {
-      stop("Length of 'select_index' must match the number of clusters at resolution ", x, ".")
+      stop("Length of 'select_index' must match the number of clusters at resolution ", resolution, ".")
     }
     # select_index should be a named vector where names correspond to merged_cluster identifiers.
     result <- result %>%
