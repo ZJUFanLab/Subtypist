@@ -8,8 +8,7 @@
 #'   `object@meta.data`.
 #' @param result.table A Subtypist result table. The canonical column names are
 #'   `resolution`, `merged_cluster`, `initial_cluster`, `phenotypic_molecules`,
-#'   and `Score`. Older `merge_cluster` and `molecular_phenotype` columns are
-#'   accepted and standardized internally.
+#'   and `Score`.
 #' @param result.list A result list returned by `Subtypist_merge()`. If provided,
 #'   `object` and `result.table` are taken from this list.
 #' @param selected.resolution The resolution to assess. If `NULL`, the function
@@ -71,7 +70,16 @@ Subtypist_consensus <- function(object = NULL,
     stop("'window.size' must be at least 1.")
   }
 
-  result.table <- .standardize_subtypist_result_table(result.table)
+  result.table <- tibble::as_tibble(result.table)
+  required.columns <- c("resolution", "merged_cluster", "Score")
+  missing.columns <- setdiff(required.columns, colnames(result.table))
+  if (length(missing.columns) > 0) {
+    stop(
+      "The result.table is missing required columns: ",
+      paste(missing.columns, collapse = ", ")
+    )
+  }
+
   result.table$.subtypist_row_id <- seq_len(nrow(result.table))
   result.table$.resolution_key <- .resolution_key(result.table$resolution)
   result.table$.cluster_key <- as.character(result.table$merged_cluster)
@@ -210,7 +218,7 @@ repr_markdown.Subtypist_consensus <- function(obj, ...) {
 
 repr_html.Subtypist_consensus <- function(obj, ...) {
   lines <- utils::capture.output(print(obj))
-  lines <- htmltools::htmlEscape(lines)
+  lines <- .escape_html(lines)
   paste0("<pre>", paste(lines, collapse = "\n"), "</pre>")
 }
 
@@ -218,28 +226,12 @@ repr_latex.Subtypist_consensus <- function(obj, ...) {
   paste(utils::capture.output(print(obj)), collapse = "\n")
 }
 
-.standardize_subtypist_result_table <- function(result.table) {
-  result.table <- tibble::as_tibble(result.table)
-
-  if (!"merged_cluster" %in% colnames(result.table) &&
-      "merge_cluster" %in% colnames(result.table)) {
-    colnames(result.table)[colnames(result.table) == "merge_cluster"] <- "merged_cluster"
-  }
-  if (!"phenotypic_molecules" %in% colnames(result.table) &&
-      "molecular_phenotype" %in% colnames(result.table)) {
-    colnames(result.table)[colnames(result.table) == "molecular_phenotype"] <- "phenotypic_molecules"
-  }
-
-  required.columns <- c("resolution", "merged_cluster", "Score")
-  missing.columns <- setdiff(required.columns, colnames(result.table))
-  if (length(missing.columns) > 0) {
-    stop(
-      "The result.table is missing required columns: ",
-      paste(missing.columns, collapse = ", ")
-    )
-  }
-
-  result.table
+.escape_html <- function(x) {
+  x <- gsub("&", "&amp;", x, fixed = TRUE)
+  x <- gsub("<", "&lt;", x, fixed = TRUE)
+  x <- gsub(">", "&gt;", x, fixed = TRUE)
+  x <- gsub('"', "&quot;", x, fixed = TRUE)
+  x
 }
 
 .ordered_resolutions <- function(resolution) {

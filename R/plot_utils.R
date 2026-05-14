@@ -45,9 +45,6 @@ Subtypist_Dimplot <- function(object=NULL,result.table=NULL,results.list=NULL,
     stop("Please provide the resolution at which annotations need to be added!")
   }
   if (!is.null(result.table)) {
-    result.table <- .standardize_subtypist_result_table(result.table)
-  }
-  if (!is.null(result.table)) {
     keep_res <- c()
     for (index in seq_along(resolution)) {
       res_x <- resolution[index]

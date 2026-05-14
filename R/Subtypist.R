@@ -437,7 +437,6 @@ AddSubtypist <- function(object=NULL,resolution=NULL,result.table=NULL,result.li
   if(is.null(resolution)){
     stop("Please provide the resolution at which annotations need to be added!")
   }
-  result.table <- .standardize_subtypist_result_table(result.table)
   result <- result.table[c('resolution','merged_cluster','phenotypic_molecules')]
   result$resolution = as.character(result$resolution)
   result <- result[result$resolution %in% as.character(resolution),]
