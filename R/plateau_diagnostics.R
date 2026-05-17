@@ -1,9 +1,11 @@
 #' Subtypist merge with post-hoc plateau diagnostics
 #'
 #' This diagnostic wrapper records merge-step score trajectories for each
-#' resolution. By default it keeps the original Subtypist termination rule. Users
-#' can optionally set \code{termination.mode = "plateau"} to stop a resolution
-#' when the selected score metric enters a plateau.
+#' resolution. By default it keeps the original Subtypist termination rule.
+#' Users can optionally set \code{termination.mode = "plateau"} to stop a
+#' resolution when the selected score metric enters a plateau, or
+#' \code{termination.mode = "elbow"} to use a two-stage elbow plus optional
+#' subsampling-stability rule.
 #'
 #' @param object A Seurat object.
 #' @param min.resolution Minimum clustering resolution.
@@ -26,7 +28,8 @@
 #' @param top_k Number of marker genes used to summarize cluster scores.
 #' @param termination.mode Termination rule for each resolution. \code{"original"}
 #'   keeps the original Subtypist rule; \code{"plateau"} uses the plateau rule as
-#'   an alternative stopping criterion.
+#'   an alternative stopping criterion; \code{"elbow"} uses a segmented-regression
+#'   elbow rule with optional subsampling stability checks.
 #' @param plateau.metric Score metric used when \code{termination.mode =
 #'   "plateau"}.
 #' @param plateau.change Whether plateau is called from absolute score changes
@@ -34,9 +37,23 @@
 #' @param plateau.eps Minimum score change treated as meaningful improvement.
 #' @param plateau.patience Number of consecutive low-change steps required for a plateau.
 #' @param plateau.min.steps Minimum number of merge steps before plateau calling.
+#' @param elbow.metric Score metric used when \code{termination.mode = "elbow"}.
+#' @param elbow.min.points Minimum number of score points required to fit an elbow.
+#' @param elbow.min.steps Minimum merge step before elbow calling.
+#' @param elbow.confirm.steps Number of additional merge steps observed after
+#'   the estimated elbow before accepting it as a stopping point.
+#' @param elbow.window Local step window around the estimated elbow used for
+#'   optional subsampling stability checks.
+#' @param elbow.stability.enabled Whether to run optional subsampling stability
+#'   checks for the elbow mode.
+#' @param elbow.stability.metric Similarity metric used for subsampling stability.
+#' @param elbow.stability.threshold Minimum similarity required to accept the elbow.
+#' @param elbow.subsample.fraction Fraction of cells sampled for each stability replicate.
+#' @param elbow.subsample.reps Number of subsampling replicates.
+#' @param elbow.subsample.seed Seed used for subsampling stability checks.
 #'
 #' @return A list with \code{Object}, \code{result.table}, \code{step.history},
-#'   and \code{plateau.table}.
+#'   \code{plateau.table}, and \code{elbow.table}.
 #' @export
 Subtypist_merge_diagnostics <- function(object,
                                         min.resolution = 0.3,
@@ -57,16 +74,36 @@ Subtypist_merge_diagnostics <- function(object,
                                         verbose = FALSE,
                                         regulation = c("up", "down", "both"),
                                         top_k = 3,
-                                        termination.mode = c("original", "plateau"),
+                                        termination.mode = c("original", "plateau", "elbow"),
                                         plateau.metric = c("total_score", "mean_score"),
                                         plateau.change = c("absolute", "relative"),
                                         plateau.eps = 0.01,
                                         plateau.patience = 2,
-                                        plateau.min.steps = 2) {
+                                        plateau.min.steps = 2,
+                                        elbow.metric = c("mean_score", "total_score"),
+                                        elbow.min.points = 4,
+                                        elbow.min.steps = 2,
+                                        elbow.confirm.steps = 1,
+                                        elbow.window = 1,
+                                        elbow.stability.enabled = FALSE,
+                                        elbow.stability.metric = c("ARI", "NMI"),
+                                        elbow.stability.threshold = 0.85,
+                                        elbow.subsample.fraction = 0.8,
+                                        elbow.subsample.reps = 10,
+                                        elbow.subsample.seed = 1L) {
   regulation <- match.arg(regulation)
-  termination.mode <- match.arg(termination.mode)
+  termination.mode <- match.arg(termination.mode, choices = c("original", "plateau", "elbow"))
   plateau.metric <- match.arg(plateau.metric)
   plateau.change <- match.arg(plateau.change)
+  elbow.metric <- match.arg(elbow.metric)
+  elbow.stability.metric <- match.arg(elbow.stability.metric)
+  elbow.min.points <- max(4L, as.integer(elbow.min.points))
+  elbow.min.steps <- max(1L, as.integer(elbow.min.steps))
+  elbow.confirm.steps <- max(0L, as.integer(elbow.confirm.steps))
+  elbow.window <- max(0L, as.integer(elbow.window))
+  elbow.stability.threshold <- max(0, min(1, as.numeric(elbow.stability.threshold)))
+  elbow.subsample.fraction <- max(0.05, min(1, as.numeric(elbow.subsample.fraction)))
+  elbow.subsample.reps <- max(1L, as.integer(elbow.subsample.reps))
 
   if (!(is(object, "Seurat") || is(object, "SeuratObject"))) {
     stop("Error: Please input a Seurat or SeuratObject!")
@@ -99,6 +136,7 @@ Subtypist_merge_diagnostics <- function(object,
   clustertmp <- rep(FALSE, 100)
   results <- data.frame()
   step.history <- data.frame()
+  elbow.table <- data.frame()
 
   for (i.resolution in seq(min.resolution, max.resolution, by = by)) {
     if (seurat.major == "4") {
@@ -145,6 +183,8 @@ Subtypist_merge_diagnostics <- function(object,
     tmp <- rep(FALSE, clusterNum)
     steps <- 0
     stop.reason <- NA_character_
+    elbow.result <- NULL
+    state.history <- list()
 
     while (TRUE) {
       if (steps == 0) {
@@ -193,6 +233,14 @@ Subtypist_merge_diagnostics <- function(object,
             merge.jaccard = NA_real_,
             stop.reason = NA_character_
           )
+        )
+        state.history[[as.character(steps)]] <- .diagnostic_save_state(
+          object = obj2,
+          Newcolumn = Newcolumn,
+          resMarker = resMarker,
+          mergedNodes = mergedNodes,
+          clusterNum = clusterNum,
+          tmp = tmp
         )
       }
 
@@ -322,6 +370,14 @@ Subtypist_merge_diagnostics <- function(object,
           stop.reason = NA_character_
         )
       )
+      state.history[[as.character(steps)]] <- .diagnostic_save_state(
+        object = obj2,
+        Newcolumn = Newcolumn,
+        resMarker = resMarker,
+        mergedNodes = mergedNodes,
+        clusterNum = clusterNum,
+        tmp = tmp
+      )
 
       if (termination.mode == "plateau") {
         current.history <- step.history[step.history$resolution == i.resolution, ]
@@ -344,6 +400,74 @@ Subtypist_merge_diagnostics <- function(object,
           break
         }
       }
+
+      if (termination.mode == "elbow") {
+        current.history <- step.history[step.history$resolution == i.resolution, ]
+        elbow.result <- .diagnostic_elbow_reached(
+          step.history = current.history,
+          metric = elbow.metric,
+          min.points = elbow.min.points,
+          min.steps = elbow.min.steps,
+          confirm.steps = elbow.confirm.steps,
+          window = elbow.window,
+          stability.enabled = elbow.stability.enabled,
+          stability.metric = elbow.stability.metric,
+          stability.threshold = elbow.stability.threshold,
+          subsample.fraction = elbow.subsample.fraction,
+          subsample.reps = elbow.subsample.reps,
+          subsample.seed = elbow.subsample.seed,
+          object = obj2,
+          state.history = state.history,
+          resolution = i.resolution,
+          column = column,
+          Newcolumn = Newcolumn,
+          use.assay = use.assay,
+          cluster_assay = cluster_assay,
+          n.top = n.top,
+          min.pct.1 = min.pct.1,
+          min.diff = min.diff,
+          min.avg_log2FC = min.avg_log2FC,
+          logfc.threshold = logfc.threshold,
+          regulation = regulation,
+          accelerated = accelerated,
+          seurat.major = seurat.major,
+          max.steps = max.steps,
+          algorithm = algorithm,
+          tua = tua,
+          top_k = top_k
+        )
+        if (isTRUE(elbow.result$should.stop)) {
+          stop.reason <- elbow.result$stop.reason
+          if (verbose) {
+            cat(
+              "Elbow termination reached at resolution", i.resolution,
+              "step", steps,
+              "using", elbow.metric, "\n"
+            )
+          }
+          break
+        }
+      }
+    }
+
+    if (termination.mode == "elbow" &&
+        !is.null(elbow.result) &&
+        isTRUE(elbow.result$should.stop) &&
+        !is.null(elbow.result$selected.step)) {
+      selected.state <- state.history[[as.character(elbow.result$selected.step)]]
+      if (!is.null(selected.state)) {
+        obj2@meta.data[[Newcolumn]] <- selected.state$labels[rownames(obj2@meta.data)]
+        Seurat::Idents(obj2) <- Newcolumn
+        resMarker <- selected.state$resMarker
+        mergedNodes <- selected.state$mergedNodes
+        clusterNum <- selected.state$clusterNum
+        tmp <- selected.state$tmp
+        step.history <- step.history[
+          !(step.history$resolution == i.resolution & step.history$step > elbow.result$selected.step),
+          ,
+          drop = FALSE
+        ]
+      }
     }
 
     if (nrow(step.history) > 0) {
@@ -356,6 +480,30 @@ Subtypist_merge_diagnostics <- function(object,
     # step.history diagnostics, not to the canonical result.table.
     clu <- .setClulterInf(resMarker, mergedNodes, i.resolution, regulation = regulation, top_k = top_k)
     results <- rbind(results, as.data.frame(clu))
+
+    if (!is.null(elbow.result) && !is.null(elbow.result$elbow.step)) {
+      elbow.table <- rbind(
+        elbow.table,
+        data.frame(
+          resolution = i.resolution,
+          elbow_metric = elbow.metric,
+          elbow_step = elbow.result$elbow.step,
+          elbow_score = elbow.result$elbow.score,
+          elbow_evaluated_step = elbow.result$evaluated.step,
+          elbow_stability = elbow.result$elbow.stability,
+          elbow_selected_step = elbow.result$selected.step,
+          elbow_selected_score = elbow.result$selected.score,
+          elbow_selected_stability = elbow.result$selected.stability,
+          elbow_stability_metric = elbow.stability.metric,
+          elbow_stability_threshold = elbow.stability.threshold,
+          elbow_subsample_fraction = elbow.subsample.fraction,
+          elbow_subsample_reps = elbow.subsample.reps,
+          elbow_subsample_enabled = elbow.stability.enabled,
+          elbow_stop_reason = stop.reason,
+          stringsAsFactors = FALSE
+        )
+      )
+    }
   }
 
   plateau.table <- Subtypist_call_plateau(
@@ -371,9 +519,16 @@ Subtypist_merge_diagnostics <- function(object,
     result.table = results,
     step.history = step.history,
     plateau.table = plateau.table,
+    elbow.table = elbow.table,
     termination.mode = termination.mode,
     plateau.metric = plateau.metric,
-    plateau.change = plateau.change
+    plateau.change = plateau.change,
+    elbow.metric = elbow.metric,
+    elbow.confirm.steps = elbow.confirm.steps,
+    elbow.window = elbow.window,
+    elbow.stability.enabled = elbow.stability.enabled,
+    elbow.stability.metric = elbow.stability.metric,
+    elbow.stability.threshold = elbow.stability.threshold
   )
   return(reslist)
 }
@@ -469,6 +624,378 @@ Subtypist_call_plateau <- function(step.history,
 
   recent.index <- (length(low.change) - patience + 1):length(low.change)
   all(low.change[recent.index])
+}
+
+.diagnostic_elbow_reached <- function(step.history,
+                                      metric = c("mean_score", "total_score"),
+                                      min.points = 4,
+                                      min.steps = 2,
+                                      confirm.steps = 1,
+                                      window = 1,
+                                      stability.enabled = FALSE,
+                                      stability.metric = c("ARI", "NMI"),
+                                      stability.threshold = 0.85,
+                                      subsample.fraction = 0.8,
+                                      subsample.reps = 10,
+                                      subsample.seed = 1L,
+                                      object,
+                                      state.history,
+                                      resolution,
+                                      column,
+                                      Newcolumn,
+                                      use.assay,
+                                      cluster_assay,
+                                      n.top,
+                                      min.pct.1,
+                                      min.diff,
+                                      min.avg_log2FC,
+                                      logfc.threshold,
+                                      regulation,
+                                      accelerated,
+                                      seurat.major,
+                                      max.steps,
+                                      algorithm,
+                                      tua,
+                                      top_k) {
+  metric <- match.arg(metric)
+  stability.metric <- match.arg(stability.metric)
+  if (is.null(step.history) || nrow(step.history) == 0) {
+    return(list(should.stop = FALSE, stop.reason = NA_character_))
+  }
+  one <- step.history[order(step.history$step), ]
+  if (!metric %in% colnames(one)) {
+    return(list(should.stop = FALSE, stop.reason = NA_character_))
+  }
+  if (nrow(one) < min.points) {
+    return(list(should.stop = FALSE, stop.reason = NA_character_))
+  }
+
+  elbow.step <- .diagnostic_estimate_elbow(one[[metric]], one$step, min.steps = min.steps)
+  if (is.na(elbow.step)) {
+    return(list(should.stop = FALSE, stop.reason = NA_character_))
+  }
+  current.step <- max(one$step, na.rm = TRUE)
+  if (current.step < elbow.step + confirm.steps) {
+    return(list(
+      should.stop = FALSE,
+      elbow.step = elbow.step,
+      elbow.score = .diagnostic_get_scalar(one[one$step == elbow.step, , drop = FALSE], metric, NA_real_),
+      evaluated.step = current.step,
+      elbow.stability = NA_real_,
+      selected.step = elbow.step,
+      selected.score = NA_real_,
+      selected.stability = NA_real_,
+      stop.reason = "elbow_waiting_for_confirmation"
+    ))
+  }
+  elbow.row <- one[one$step == elbow.step, , drop = FALSE]
+  if (nrow(elbow.row) == 0) {
+    elbow.row <- one[nrow(one), , drop = FALSE]
+  }
+
+  elbow.stability <- NA_real_
+  elbow.score <- .diagnostic_get_scalar(elbow.row, metric, NA_real_)
+  selected.step <- elbow.step
+  selected.score <- elbow.score
+  selected.stability <- NA_real_
+  stop.reason <- paste0("elbow_", metric)
+
+  if (stability.enabled) {
+    candidate.steps <- sort(unique(one$step[abs(one$step - elbow.step) <= window]))
+    candidate.steps <- candidate.steps[candidate.steps <= current.step]
+    candidate.steps <- candidate.steps[vapply(
+      candidate.steps,
+      function(step) !is.null(state.history[[as.character(step)]]),
+      logical(1)
+    )]
+    if (length(candidate.steps) == 0) {
+      candidate.steps <- elbow.step
+    }
+    candidate.steps <- candidate.steps[order(abs(candidate.steps - elbow.step), candidate.steps)]
+
+    stability.rows <- list()
+    for (candidate.step in candidate.steps) {
+      candidate.state <- state.history[[as.character(candidate.step)]]
+      baseline.labels <- if (!is.null(candidate.state)) candidate.state$labels else NULL
+      stability.result <- .diagnostic_elbow_stability(
+        object = object,
+        resolution = resolution,
+        cluster_assay = cluster_assay,
+        use.assay = use.assay,
+        column = column,
+        Newcolumn = Newcolumn,
+        selected.step = candidate.step,
+        baseline.labels = baseline.labels,
+        stability.metric = stability.metric,
+        stability.threshold = stability.threshold,
+        subsample.fraction = subsample.fraction,
+        subsample.reps = subsample.reps,
+        subsample.seed = subsample.seed + as.integer(candidate.step),
+        n.top = n.top,
+        min.pct.1 = min.pct.1,
+        min.diff = min.diff,
+        min.avg_log2FC = min.avg_log2FC,
+        logfc.threshold = logfc.threshold,
+        regulation = regulation,
+        accelerated = accelerated,
+        seurat.major = seurat.major,
+        max.steps = candidate.step,
+        algorithm = algorithm,
+        tua = tua,
+        top_k = top_k
+      )
+      candidate.row <- one[one$step == candidate.step, , drop = FALSE]
+      stability.rows[[length(stability.rows) + 1]] <- data.frame(
+        step = candidate.step,
+        score = .diagnostic_get_scalar(candidate.row, metric, NA_real_),
+        stability = stability.result$selected.stability,
+        passed = isTRUE(stability.result$passed),
+        stop.reason = stability.result$stop.reason,
+        stringsAsFactors = FALSE
+      )
+    }
+
+    stability.table <- do.call(rbind, stability.rows)
+    elbow.match <- stability.table[stability.table$step == elbow.step, , drop = FALSE]
+    if (nrow(elbow.match) > 0) {
+      elbow.stability <- elbow.match$stability[1]
+    }
+    passed.table <- stability.table[stability.table$passed, , drop = FALSE]
+    if (nrow(passed.table) > 0) {
+      passed.table <- passed.table[order(abs(passed.table$step - elbow.step), passed.table$step), ]
+      selected.step <- passed.table$step[1]
+      selected.score <- passed.table$score[1]
+      selected.stability <- passed.table$stability[1]
+      stop.reason <- paste0("elbow_", metric, "_stable_", stability.metric)
+    } else {
+      selected.step <- elbow.step
+      selected.score <- .diagnostic_get_scalar(elbow.row, metric, NA_real_)
+      selected.stability <- elbow.stability
+      stop.reason <- paste0("elbow_", metric, "_stability_limited")
+    }
+  }
+
+  list(
+    should.stop = TRUE,
+    elbow.step = elbow.step,
+    elbow.score = elbow.score,
+    evaluated.step = current.step,
+    elbow.stability = elbow.stability,
+    selected.step = selected.step,
+    selected.score = selected.score,
+    selected.stability = selected.stability,
+    stop.reason = stop.reason
+  )
+}
+
+.diagnostic_estimate_elbow <- function(score, steps, min.steps = 2) {
+  score <- as.numeric(score)
+  steps <- as.numeric(steps)
+  ok <- is.finite(score) & is.finite(steps)
+  score <- score[ok]
+  steps <- steps[ok]
+  if (length(score) < max(min.steps + 2, 4)) {
+    return(NA_real_)
+  }
+
+  best.step <- NA_real_
+  best.sse <- Inf
+  candidate.idx <- seq.int(2, length(score) - 1)
+  candidate.idx <- candidate.idx[steps[candidate.idx] >= min.steps]
+  if (length(candidate.idx) == 0) {
+    return(NA_real_)
+  }
+  for (k in candidate.idx) {
+    x <- steps
+    hinge <- pmax(0, steps - steps[k])
+    fit <- stats::lm(score ~ x + hinge)
+    sse <- sum(stats::resid(fit)^2, na.rm = TRUE)
+    if (is.finite(sse) && sse < best.sse) {
+      best.sse <- sse
+      best.step <- steps[k]
+    }
+  }
+  best.step
+}
+
+.diagnostic_elbow_stability <- function(object,
+                                        resolution,
+                                        cluster_assay,
+                                        use.assay,
+                                        column,
+                                        Newcolumn,
+                                        selected.step,
+                                        baseline.labels = NULL,
+                                        stability.metric = c("ARI", "NMI"),
+                                        stability.threshold = 0.85,
+                                        subsample.fraction = 0.8,
+                                        subsample.reps = 10,
+                                        subsample.seed = 1L,
+                                        n.top,
+                                        min.pct.1,
+                                        min.diff,
+                                        min.avg_log2FC,
+                                        logfc.threshold,
+                                        regulation,
+                                        accelerated,
+                                        seurat.major,
+                                        max.steps,
+                                        algorithm,
+                                        tua,
+                                        top_k) {
+  stability.metric <- match.arg(stability.metric)
+  target.col <- if (stability.metric == "ARI") "ARI" else "NMI"
+  all.cells <- rownames(object@meta.data)
+  if (is.null(all.cells) || length(all.cells) == 0) {
+    return(list(
+      elbow.stability = NA_real_,
+      selected.step = selected.step,
+      selected.score = NA_real_,
+      selected.stability = NA_real_,
+      stop.reason = "elbow_no_cells",
+      passed = FALSE
+    ))
+  }
+
+  set.seed(as.integer(subsample.seed))
+  reps <- max(1, as.integer(subsample.reps))
+  frac <- max(min(as.numeric(subsample.fraction), 1), 0.1)
+  subset.size <- max(2L, floor(length(all.cells) * frac))
+  scores <- numeric(reps)
+  scores[] <- NA_real_
+
+  for (b in seq_len(reps)) {
+    chosen <- sample(all.cells, size = subset.size, replace = FALSE)
+    sub.obj <- subset(object, cells = chosen)
+    sub.cells <- rownames(sub.obj@meta.data)
+    baseline <- NULL
+    if (!is.null(baseline.labels)) {
+      baseline <- baseline.labels[sub.cells]
+    }
+    if (is.null(baseline)) baseline <- sub.obj@meta.data[[Newcolumn]]
+    if (is.null(baseline)) baseline <- sub.obj@meta.data[[column]]
+    if (is.null(baseline)) next
+    names(baseline) <- sub.cells
+
+    if (seurat.major == "4" && use.assay == "SCT") {
+      sub.obj <- Seurat::PrepSCTFindMarkers(object = sub.obj, verbose = FALSE)
+    }
+    stability.prefix <- paste0("elbow_stability_", b, "_")
+    stability.col <- paste(stability.prefix, "snn_res.", as.character(resolution), sep = "")
+    result <- tryCatch(Subtypist_merge(
+      object = sub.obj,
+      min.resolution = resolution,
+      max.resolution = resolution,
+      by = 1,
+      max.steps = max(1, as.integer(max.steps)),
+      use.assay = use.assay,
+      cluster_assay = cluster_assay,
+      n.top = n.top,
+      min.pct.1 = min.pct.1,
+      min.diff = min.diff,
+      min.avg_log2FC = min.avg_log2FC,
+      logfc.threshold = logfc.threshold,
+      prefix = stability.prefix,
+      accelerated = accelerated,
+      algorithm = algorithm,
+      tua = tua,
+      verbose = FALSE,
+      regulation = regulation,
+      top_k = top_k
+    ), error = function(e) e)
+    if (inherits(result, "error")) next
+    pred <- result$Object@meta.data[[stability.col]]
+    if (is.null(pred)) next
+    pred.cells <- rownames(result$Object@meta.data)
+    truth <- baseline[pred.cells]
+    ok <- !is.na(truth) & !is.na(pred)
+    if (sum(ok) == 0) next
+    if (target.col == "ARI") {
+      scores[b] <- .diagnostic_adjusted_rand_index(truth[ok], pred[ok])
+    } else {
+      scores[b] <- .diagnostic_normalized_mutual_info(truth[ok], pred[ok])
+    }
+  }
+
+  mean.score <- mean(scores, na.rm = TRUE)
+  if (is.na(mean.score)) {
+    return(list(
+      elbow.stability = NA_real_,
+      selected.step = selected.step,
+      selected.score = NA_real_,
+      selected.stability = NA_real_,
+      stop.reason = "elbow_stability_unavailable",
+      passed = FALSE
+    ))
+  }
+
+  if (mean.score < stability.threshold) {
+    return(list(
+      elbow.stability = mean.score,
+      selected.step = selected.step,
+      selected.score = NA_real_,
+      selected.stability = mean.score,
+      stop.reason = paste0("elbow_stability_below_", stability.metric),
+      passed = FALSE
+    ))
+  }
+
+  list(
+    elbow.stability = mean.score,
+    selected.step = selected.step,
+    selected.score = NA_real_,
+    selected.stability = mean.score,
+    stop.reason = paste0("elbow_", stability.metric),
+    passed = TRUE
+  )
+}
+
+.diagnostic_save_state <- function(object,
+                                   Newcolumn,
+                                   resMarker,
+                                   mergedNodes,
+                                   clusterNum,
+                                   tmp) {
+  labels <- object@meta.data[[Newcolumn]]
+  names(labels) <- rownames(object@meta.data)
+  list(
+    labels = labels,
+    resMarker = resMarker,
+    mergedNodes = mergedNodes,
+    clusterNum = clusterNum,
+    tmp = tmp
+  )
+}
+
+.diagnostic_adjusted_rand_index <- function(x, y) {
+  x <- as.vector(x)
+  y <- as.vector(y)
+  if (length(x) != length(y)) stop("Arguments must be vectors of the same length.")
+  tab <- table(x, y)
+  if (all(dim(tab) == c(1, 1))) return(1)
+  a <- sum(choose(tab, 2))
+  b <- sum(choose(rowSums(tab), 2)) - a
+  c <- sum(choose(colSums(tab), 2)) - a
+  d <- choose(sum(tab), 2) - a - b - c
+  expected <- (a + b) * (a + c) / (a + b + c + d)
+  max.index <- ((a + b) + (a + c)) / 2
+  if (max.index == expected) return(NA_real_)
+  (a - expected) / (max.index - expected)
+}
+
+.diagnostic_normalized_mutual_info <- function(x, y) {
+  tab <- table(x, y)
+  n <- sum(tab)
+  px <- rowSums(tab) / n
+  py <- colSums(tab) / n
+  pxy <- tab / n
+  nz <- pxy > 0
+  mi <- sum(pxy[nz] * log(pxy[nz] / (px[row(pxy)[nz]] * py[col(pxy)[nz]])))
+  hx <- -sum(px[px > 0] * log(px[px > 0]))
+  hy <- -sum(py[py > 0] * log(py[py > 0]))
+  if (hx == 0 && hy == 0) return(1)
+  if (hx == 0 || hy == 0) return(0)
+  mi / sqrt(hx * hy)
 }
 
 .diagnostic_score_delta <- function(score, change = c("absolute", "relative")) {
