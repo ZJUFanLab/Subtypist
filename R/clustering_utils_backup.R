@@ -7,23 +7,6 @@
   return(temp)
 }
 
-.cap_nonfinite_logfc <- function(x) {
-  x <- as.numeric(x)
-  finite.idx <- is.finite(x)
-  if (all(finite.idx)) return(x)
-
-  finite.max <- 0
-  if (any(finite.idx)) {
-    finite.max <- max(abs(x[finite.idx]), na.rm = TRUE)
-    if (!is.finite(finite.max)) finite.max <- 0
-  }
-
-  inf.idx <- is.infinite(x)
-  x[inf.idx] <- sign(x[inf.idx]) * finite.max
-  x[!is.finite(x)] <- 0
-  x
-}
-
 .getInitState <- function(resMarker,clusterNum,tmp,min.score=0){
   for(i in 1:clusterNum){
     tmp[i] <- .check_standard(resMarkers[resMarkers$cluster==i,])
@@ -56,7 +39,7 @@
   intersectInf <- cluster_top[
     cluster_top$cluster %in% c(a, b) & cluster_top$gene %in% intersectGene,]
 
-  return(sum(abs(.cap_nonfinite_logfc(intersectInf$avg_log2FC))) / unions)
+  return(sum(abs(intersectInf$avg_log2FC)) / unions)
 }
 
 .getInitWeightedJaccardMatrix <- function(clusterNum, resMarker, regulation = c("both", "up", "down")) {
@@ -320,13 +303,12 @@ getSpecificity_score <- function(markers_top,
 
   b <- max(min.diff, 0.5)
   x1 <- markers_top$pct.1 - markers_top$pct.2
-  avg_log2FC <- .cap_nonfinite_logfc(markers_top$avg_log2FC)
   markers_top$specificity_score <- 0
 
   if (regulation == "up") {
-    valid <- avg_log2FC > 0
+    valid <- markers_top$avg_log2FC > 0
   } else if (regulation == "down") {
-    valid <- avg_log2FC < 0
+    valid <- markers_top$avg_log2FC < 0
   } else {
     valid <- rep(TRUE, nrow(markers_top))  # both: 不限制上下调
   }
@@ -335,7 +317,7 @@ getSpecificity_score <- function(markers_top,
 
   if (nrow(df[x1[valid] >= b, ]) > 0) {
     idx <- which(valid & x1 >= b)
-    markers_top$specificity_score[idx] <- (markers_top$pct.1[idx] - markers_top$pct.2[idx]) * avg_log2FC[idx]
+    markers_top$specificity_score[idx] <- (markers_top$pct.1[idx] - markers_top$pct.2[idx]) * markers_top$avg_log2FC[idx]
   }
 
   if (nrow(df[x1[valid] < 0.25, ]) > 0) {
@@ -345,20 +327,18 @@ getSpecificity_score <- function(markers_top,
 
   idx <- which(valid & x1 >= 0.25 & x1 < b & markers_top$pct.1 <= 0.5)
   if (length(idx) > 0) {
-    markers_top$specificity_score[idx] <- (markers_top$pct.1[idx] - markers_top$pct.2[idx]) * avg_log2FC[idx]
+    markers_top$specificity_score[idx] <- (markers_top$pct.1[idx] - markers_top$pct.2[idx]) * markers_top$avg_log2FC[idx]
   }
 
-  idx <- which(valid & x1 >= 0.25 & x1 < b & markers_top$pct.1 > 0.5 &  avg_log2FC >= min.avg_log2FC)
+  idx <- which(valid & x1 >= 0.25 & x1 < b & markers_top$pct.1 > 0.5 &  markers_top$avg_log2FC >= min.avg_log2FC)
   if (length(idx) > 0) {
-    markers_top$specificity_score[idx] <- (markers_top$pct.1[idx] - markers_top$pct.2[idx]) * avg_log2FC[idx]
+    markers_top$specificity_score[idx] <- (markers_top$pct.1[idx] - markers_top$pct.2[idx]) * markers_top$avg_log2FC[idx]
   }
 
-  idx <- which(valid & x1 >= 0.25 & x1 < b & markers_top$pct.1 > 0.5 & avg_log2FC < min.avg_log2FC)
+  idx <- which(valid & x1 >= 0.25 & x1 < b & markers_top$pct.1 > 0.5 & markers_top$avg_log2FC < min.avg_log2FC)
   if (length(idx) > 0) {
-    markers_top$specificity_score[idx] <- (markers_top$pct.1[idx] - markers_top$pct.2[idx]) * avg_log2FC[idx]
+    markers_top$specificity_score[idx] <- (markers_top$pct.1[idx] - markers_top$pct.2[idx]) * markers_top$avg_log2FC[idx]
   }
-
-  markers_top$avg_log2FC <- avg_log2FC
 
   # 按分数降序排序
   markers_top <- dplyr::arrange(markers_top, desc(specificity_score))
