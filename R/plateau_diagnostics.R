@@ -1118,7 +1118,7 @@ Subtypist_call_plateau <- function(step.history,
   idents.all <- sort(unique(Seurat::Idents(object = obj)))
 
   if (seurat.major == "5" && accelerated) {
-    obj_join_layers <- JoinLayers(obj)
+    obj_join_layers <- Seurat::JoinLayers(obj)
     all.markers <- presto::wilcoxauc(X = obj_join_layers, group.by = column, verbose = FALSE)
     all.markers <- all.markers %>% dplyr::filter(pct_in >= 0.1)
     all.markers$pct_in <- all.markers$pct_in / 100
@@ -1132,7 +1132,7 @@ Subtypist_call_plateau <- function(step.history,
   } else {
     obj_for_markers <- obj
     if (seurat.major == "5") {
-      obj_for_markers <- JoinLayers(obj)
+      obj_for_markers <- Seurat::JoinLayers(obj)
     }
     all.markers <- data.frame()
     for (ident in idents.all) {
@@ -1206,7 +1206,7 @@ Subtypist_call_plateau <- function(step.history,
   only.pos <- (regulation == "up")
 
   if (seurat.major == "5" && accelerated) {
-    obj_join_layers <- JoinLayers(obj)
+    obj_join_layers <- Seurat::JoinLayers(obj)
     all.markers <- presto::wilcoxauc(X = obj_join_layers, group.by = Newcolumn, verbose = FALSE)
     all.markers <- all.markers %>% dplyr::filter(pct_in >= 0.1)
     all.markers$pct_in <- all.markers$pct_in / 100
@@ -1226,7 +1226,7 @@ Subtypist_call_plateau <- function(step.history,
 
   obj_for_markers <- obj
   if (seurat.major == "5") {
-    obj_for_markers <- JoinLayers(obj)
+    obj_for_markers <- Seurat::JoinLayers(obj)
   }
   Seurat::Idents(obj_for_markers) <- Newcolumn
   if (seurat.major == "4") {
