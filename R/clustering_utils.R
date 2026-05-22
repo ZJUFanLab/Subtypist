@@ -59,20 +59,25 @@
   return(sum(abs(.cap_nonfinite_logfc(intersectInf$avg_log2FC))) / unions)
 }
 
+.getWeightedJaccardByRegulation <- function(cluster_top, a, b, regulation = c("both", "up", "down")) {
+  regulation <- match.arg(regulation)
+  if (regulation == "both") {
+    up <- cluster_top[cluster_top$avg_log2FC > 0, ]
+    down <- cluster_top[cluster_top$avg_log2FC < 0, ]
+    return(mean(c(
+      .getWeightedJaccard(up, a, b),
+      .getWeightedJaccard(down, a, b)
+    ), na.rm = TRUE))
+  }
+  .getWeightedJaccard(cluster_top, a, b)
+}
+
 .getInitWeightedJaccardMatrix <- function(clusterNum, resMarker, regulation = c("both", "up", "down")) {
   regulation <- match.arg(regulation)
   M <- matrix(0, nrow = clusterNum, ncol = clusterNum)
   for(i in 1:(clusterNum-1)){
     for(j in (i+1):clusterNum){
-      if(regulation == 'both'){
-        up <- resMarker[resMarker$avg_log2FC > 0,]
-        down <- resMarker[resMarker$avg_log2FC < 0,]
-        j_up <- .getWeightedJaccard(up,i-1,j-1)
-        j_down <- .getWeightedJaccard(down,i-1,j-1)
-        JaccardScore <- mean(c(j_up, j_down), na.rm = TRUE)
-      }else{
-        JaccardScore <- .getWeightedJaccard(resMarker,i-1,j-1)
-      }
+      JaccardScore <- .getWeightedJaccardByRegulation(resMarker, i - 1, j - 1, regulation = regulation)
       M[i,j] <- M[j,i] <- JaccardScore
     }
   }
@@ -113,7 +118,7 @@
 
 
 
-.updateDistanceMatrix <- function(M,Index.min,Index.max,resMarker,clusterNum,operation){ # operation传入函数
+.updateDistanceMatrix <- function(M,Index.min,Index.max,resMarker,clusterNum,operation,regulation = NULL){ # operation传入函数
   # delete combined.max row
   M <- M[-Index.max,-Index.max]
   gene.new <- resMarker[resMarker$cluster==(Index.min-1),]$gene
@@ -123,7 +128,11 @@
       M[Index.min,index] <- 0
       next
     }
-    JaccardScore <- operation(resMarker,Index.min-1,index-1)
+    if (is.null(regulation)) {
+      JaccardScore <- operation(resMarker,Index.min-1,index-1)
+    } else {
+      JaccardScore <- .getWeightedJaccardByRegulation(resMarker, Index.min - 1, index - 1, regulation = regulation)
+    }
     M[Index.min,index] <- JaccardScore
     M[index,Index.min] <- JaccardScore
   }
@@ -202,59 +211,11 @@
   return(list(first,second))
 }
 
-#' Title Calculation of specificity score
-#'
-#' @param markers_top marker genes per cluster.
-#' @param min.pct.1 Minimum percent of cells expressing the gene in the cluster.
-#' @param min.diff Minimum difference in expression percent between clusters.
-#' @param min.avg_log2FC Minimum average log2 fold change for marker selection.
-#'
-#' @return return a specificity score
-#' @export
-#'
-getSpecificity_score <- function(markers_top,min.pct.1=0.1,min.diff=0,min.avg_log2FC=0.5){ # pct.1 findMarkers(min.pct),
-  b <- max(min.diff,0.5)
-  x1 <- markers_top$pct.1 - markers_top$pct.2
-  markers_top$specificity_score <- 0
-  if(nrow(markers_top[x1>=b,]) > 0){markers_top[x1>=b,]$specificity_score <- (markers_top[x1>=b,]$pct.1 - markers_top[x1>=b,]$pct.2) * markers_top[x1>=b,]$avg_log2FC}
-  if(nrow(markers_top[x1<0.25,]) > 0){markers_top[x1<0.25,]$specificity_score <- 0}
-  if(nrow(markers_top[x1>=0.25
-                      & x1<b
-                      & markers_top$pct.1<=0.5,]) > 0)
-  {markers_top[x1>=0.25
-               & x1<b
-               & markers_top$pct.1<=0.5,]$specificity_score <- (markers_top[x1>=0.25 & x1<b & markers_top$pct.1<=0.5,]$pct.1-markers_top[x1>=0.25 & x1<b & markers_top$pct.1<=0.5,]$pct.2) * markers_top[x1>=0.25 & x1<b & markers_top$pct.1<=0.5,]$avg_log2FC
-  }
-  if(nrow(markers_top[x1>=0.25
-                      & x1<b
-                      & markers_top$pct.1>0.5
-                      & markers_top$avg_log2FC>=min.avg_log2FC,]) > 0)
-  {markers_top[x1>=0.25
-               & x1<b
-               & markers_top$pct.1>0.5
-               & markers_top$avg_log2FC>=min.avg_log2FC,]$specificity_score <- (markers_top[x1>=0.25 & x1<b & markers_top$pct.1>0.5 & markers_top$avg_log2FC>=min.avg_log2FC,]$pct.1-markers_top[x1>=0.25 & x1<b & markers_top$pct.1>0.5 & markers_top$avg_log2FC>=min.avg_log2FC,]$pct.2) * markers_top[x1>=0.25 & x1<b & markers_top$pct.1>0.5 & markers_top$avg_log2FC>=min.avg_log2FC,]$avg_log2FC}
-  if(nrow(markers_top[x1>=0.25
-                      & x1<b
-                      & markers_top$pct.1>0.5
-                      & markers_top$avg_log2FC<min.avg_log2FC,]) > 0)
-  {markers_top[x1>=0.25
-               & x1<b
-               & markers_top$pct.1>0.5
-               & markers_top$avg_log2FC<min.avg_log2FC,]$specificity_score <- (markers_top[x1>=0.25 & x1<b & markers_top$pct.1>0.5 & markers_top$avg_log2FC < min.avg_log2FC,]$pct.1-markers_top[x1>=0.25 & x1<b & markers_top$pct.1>0.5 & markers_top$avg_log2FC <  min.avg_log2FC,]$pct.2) * markers_top[x1>=0.25 & x1<b & markers_top$pct.1>0.5 & markers_top$avg_log2FC <  min.avg_log2FC,]$avg_log2FC}
-  markers_top <- dplyr::arrange(markers_top,desc(specificity_score))
-  return(markers_top)
-}
 .setClulterInf <- function(resMarker, mergedNodes, resolution, regulation = c("up", "down", "both"),top_k = 3) {
   regulation <- match.arg(regulation)
 
-  # Adjust sorting direction based on regulation
-  if (regulation == "down") {
-    resMarker <- resMarker %>%
-      dplyr::arrange(cluster, specificity_score, avg_log2FC)
-  } else {
-    resMarker <- resMarker %>%
-      dplyr::arrange(cluster, desc(specificity_score), desc(avg_log2FC))
-  }
+  resMarker <- resMarker %>%
+    dplyr::arrange(cluster, dplyr::desc(specificity_score), dplyr::desc(abs(avg_log2FC)))
 
   # Select top n marker genes per cluster
   top_genes <- resMarker %>%
@@ -284,6 +245,19 @@ getSpecificity_score <- function(markers_top,min.pct.1=0.1,min.diff=0,min.avg_lo
   colnames(clu) <- c("resolution", "merged_cluster", "initial_cluster", "phenotypic_molecules", "Score")
   return(clu)
 }
+#' Title Calculation of specificity score
+#'
+#' @param markers_top marker genes per cluster.
+#' @param min.pct.1 Minimum percent of cells expressing the gene in the cluster.
+#' @param min.diff Minimum absolute difference in expression percent between
+#'   the target cluster and other clusters.
+#' @param min.avg_log2FC Minimum average log2 fold change retained for backward
+#'   compatibility.
+#' @param regulation Marker regulation direction: up, down, or both.
+#'
+#' @return return a specificity score
+#' @export
+#'
 getSpecificity_score <- function(markers_top,
                                  min.pct.1 = 0.1,
                                  min.diff = 0.5,
@@ -291,49 +265,26 @@ getSpecificity_score <- function(markers_top,
                                  regulation = c("up", "down", "both")) {
   regulation <- match.arg(regulation)
 
-  b <- max(min.diff, 0.5)
   x1 <- markers_top$pct.1 - markers_top$pct.2
   avg_log2FC <- .cap_nonfinite_logfc(markers_top$avg_log2FC)
   markers_top$specificity_score <- 0
+  delta <- max(c(as.numeric(min.diff), 0.25), na.rm = TRUE)
 
   if (regulation == "up") {
-    valid <- avg_log2FC > 0
+    valid <- avg_log2FC > 0 & x1 > 0
   } else if (regulation == "down") {
-    valid <- avg_log2FC < 0
+    valid <- avg_log2FC < 0 & x1 < 0
   } else {
-    valid <- rep(TRUE, nrow(markers_top))  # both: 不限制上下调
-  }
-  valid <- valid & (markers_top$pct.1 > markers_top$pct.2)
-  df <- markers_top[valid, ]
-
-  if (nrow(df[x1[valid] >= b, ]) > 0) {
-    idx <- which(valid & x1 >= b)
-    markers_top$specificity_score[idx] <- (markers_top$pct.1[idx] - markers_top$pct.2[idx]) * avg_log2FC[idx]
+    valid <- sign(avg_log2FC) == sign(x1) & sign(avg_log2FC) != 0
   }
 
-  if (nrow(df[x1[valid] < 0.25, ]) > 0) {
-    idx <- which(valid & x1 < 0.25)
-    markers_top$specificity_score[idx] <- 0
-  }
-
-  idx <- which(valid & x1 >= 0.25 & x1 < b & markers_top$pct.1 <= 0.5)
+  idx <- which(valid & abs(x1) >= delta)
   if (length(idx) > 0) {
-    markers_top$specificity_score[idx] <- (markers_top$pct.1[idx] - markers_top$pct.2[idx]) * avg_log2FC[idx]
-  }
-
-  idx <- which(valid & x1 >= 0.25 & x1 < b & markers_top$pct.1 > 0.5 &  avg_log2FC >= min.avg_log2FC)
-  if (length(idx) > 0) {
-    markers_top$specificity_score[idx] <- (markers_top$pct.1[idx] - markers_top$pct.2[idx]) * avg_log2FC[idx]
-  }
-
-  idx <- which(valid & x1 >= 0.25 & x1 < b & markers_top$pct.1 > 0.5 & avg_log2FC < min.avg_log2FC)
-  if (length(idx) > 0) {
-    markers_top$specificity_score[idx] <- (markers_top$pct.1[idx] - markers_top$pct.2[idx]) * avg_log2FC[idx]
+    markers_top$specificity_score[idx] <- x1[idx] * avg_log2FC[idx]
   }
 
   markers_top$avg_log2FC <- avg_log2FC
 
-  # 按分数降序排序
-  markers_top <- dplyr::arrange(markers_top, desc(specificity_score))
+  markers_top <- dplyr::arrange(markers_top, dplyr::desc(specificity_score), dplyr::desc(abs(avg_log2FC)))
   return(markers_top)
 }

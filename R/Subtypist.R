@@ -177,14 +177,20 @@ Subtypist_merge <- function(object,
         only.pos <- (regulation == "up")
         newCluster_marker <- Seurat::FindMarkers(obj2, ident.1 = cluster.min, ident.2 = NULL,only.pos=only.pos,min.pct=0,verbose = FALSE)
         newMarkers_top <- newCluster_marker %>% dplyr::slice_max(order_by = abs(avg_log2FC), n = n.top)
-        newMarkers_top <- getSpecificity_score(newMarkers_top,min.pct.1= min.pct.1,min.diff=min.diff)
+        newMarkers_top <- getSpecificity_score(
+          newMarkers_top,
+          min.pct.1 = min.pct.1,
+          min.diff = min.diff,
+          min.avg_log2FC = min.avg_log2FC,
+          regulation = regulation
+        )
 
         newMarkers_top$gene <- rownames(newMarkers_top)
         resMarker <- .updateMarkerlist(resMarker,combined.min=cluster.min,combined.max=cluster.max,newMarkers_top,clusterNum) # newMarkers_top with cluster
         # Update the condition list
         tmp <- .updateState(tmp,Index.min,Index.max,resMarker[resMarker$cluster==cluster.min,])
         # Update DistanceMatrix
-        M <- .updateDistanceMatrix(M=M,Index.min=Index.min,Index.max=Index.max,resMarker=resMarker,clusterNum=clusterNum,operation=.getWeightedJaccard)
+        M <- .updateDistanceMatrix(M=M,Index.min=Index.min,Index.max=Index.max,resMarker=resMarker,clusterNum=clusterNum,operation=.getWeightedJaccard,regulation=regulation)
         # Update the merged list
         mergedNodes <- .mergeSteps(mergedNodes,combined.min=Index.min,combined.max=Index.max)
         # do it for everysteps
@@ -260,9 +266,9 @@ Subtypist_merge <- function(object,
           markers.list <- list()
           all.markers.RNA <- tibble::tibble()
           only.pos <- (regulation == "up")
-          obj_join_layers <- JoinLayers(obj2)
+          obj_join_layers <- SeuratObject::JoinLayers(obj2)
           if(accelerated == TRUE){
-            obj_join_layers <- JoinLayers(obj2)
+            obj_join_layers <- SeuratObject::JoinLayers(obj2)
             all.markers.RNA <-  presto::wilcoxauc(X = obj_join_layers,group.by = column,verbose = FALSE)
             all.markers.RNA <- all.markers.RNA %>%
               dplyr::filter(
@@ -339,7 +345,7 @@ Subtypist_merge <- function(object,
         Seurat::Idents(obj_join_layers) <- Newcolumn
         Seurat::Idents(obj2) <- Newcolumn
         if(accelerated == TRUE){
-          obj_join_layers <- JoinLayers(obj2)
+          obj_join_layers <- SeuratObject::JoinLayers(obj2)
           all.markers.RNA <-  presto::wilcoxauc(X = obj_join_layers,group.by = column,verbose = FALSE)
           all.markers.RNA <- all.markers.RNA %>%
             dplyr::filter(
@@ -356,20 +362,32 @@ Subtypist_merge <- function(object,
 
           resMarker <- tibble::tibble()
           for(cluster in 0:(clusterNum-1)){
-            cluster_top_with_score <- getSpecificity_score(Allmarkers_top[Allmarkers_top$cluster==cluster,],min.pct.1= min.pct.1,min.diff = min.diff)# ,min.gap =
+            cluster_top_with_score <- getSpecificity_score(
+              Allmarkers_top[Allmarkers_top$cluster==cluster,],
+              min.pct.1 = min.pct.1,
+              min.diff = min.diff,
+              min.avg_log2FC = min.avg_log2FC,
+              regulation = regulation
+            )# ,min.gap =
             resMarker <- rbind(resMarker,cluster_top_with_score)
           }
         }else{
-          newCluster_marker <- Seurat::FindMarkers(obj_join_layers, ident.1 = cluster.min, ident.2 = NULL,only.pos=T,min.pct=0,verbose = FALSE,logfc.threshold=0.1)
+          newCluster_marker <- Seurat::FindMarkers(obj_join_layers, ident.1 = cluster.min, ident.2 = NULL,only.pos=only.pos,min.pct=0,verbose = FALSE,logfc.threshold=0.1)
           newMarkers_top <- newCluster_marker %>% dplyr::slice_max(order_by = abs(avg_log2FC), n = n.top)
-          newMarkers_top <- getSpecificity_score(newMarkers_top,min.pct.1= min.pct.1,min.diff=min.diff)
+          newMarkers_top <- getSpecificity_score(
+            newMarkers_top,
+            min.pct.1 = min.pct.1,
+            min.diff = min.diff,
+            min.avg_log2FC = min.avg_log2FC,
+            regulation = regulation
+          )
           newMarkers_top$gene <- rownames(newMarkers_top)
           resMarker <- .updateMarkerlist(resMarker,combined.min=cluster.min,combined.max=cluster.max,newMarkers_top,clusterNum) # newMarkers_top with cluster
         }
         # Update the condition list
         tmp <- .updateState(tmp,Index.min,Index.max,resMarker[resMarker$cluster==cluster.min,])
         # Update DistanceMatrix
-        M <- .updateDistanceMatrix(M=M,Index.min=Index.min,Index.max=Index.max,resMarker=resMarker,clusterNum=clusterNum,operation=.getWeightedJaccard)
+        M <- .updateDistanceMatrix(M=M,Index.min=Index.min,Index.max=Index.max,resMarker=resMarker,clusterNum=clusterNum,operation=.getWeightedJaccard,regulation=regulation)
         # Update the merged list
         mergedNodes <- .mergeSteps(mergedNodes,combined.min=Index.min,combined.max=Index.max)
         # do it for everysteps
