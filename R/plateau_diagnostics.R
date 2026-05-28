@@ -165,6 +165,15 @@ Subtypist_merge_diagnostics <- function(object,
     initial.cluster.num <- clusterNum
 
     if (clusterNum == 1) next
+    cluster_size <- table(obj2@meta.data[[column]])
+    if (any(cluster_size < 3)) {
+      message(
+        "Skipping resolution ", i.resolution,
+        ": cluster(s) with fewer than 3 cells: ",
+        paste(names(cluster_size)[cluster_size < 3], collapse = ", ")
+      )
+      next
+    }
     if (clustertmp[clusterNum]) {
       last.resolution <- c(last.resolution, i.resolution)
     }
