@@ -139,16 +139,25 @@
   return(M)
 }
 
+.initialClusterLabels <- function(x) {
+  if (is.factor(x)) x <- as.character(x)
+  y <- suppressWarnings(as.numeric(x))
+  if (all(!is.na(y))) return(y)
+  as.character(x)
+}
+
 .updateSeuratObj <- function(obj,column,combined.min,combined.max,clusterNum){
-  sc_meta <- obj@meta.data
-  sc_meta[sc_meta[[column]]==combined.max,][[column]] <- combined.min
+  labels <- obj@meta.data[[column]]
+  if (is.factor(labels)) labels <- as.character(labels)
+  labels <- suppressWarnings(as.numeric(labels))
+
+  labels[labels == combined.max] <- combined.min
   if(combined.max <= clusterNum-2){
     for(i in (combined.max+1):(clusterNum-1)){
-      new <- i-1
-      sc_meta[sc_meta[[column]]==i,][[column]] <- new
+      labels[labels == i] <- i - 1
     }
   }
-  obj@meta.data <- sc_meta
+  obj@meta.data[[column]] <- labels
   return(obj)
 }
 
@@ -161,7 +170,7 @@
 
   if(combined.max <= clusterNum-2){
     for(index in (combined.max+1):(clusterNum-1)){
-      cluster_top[cluster_top$cluster==index,]$cluster <- index - 1
+      cluster_top$cluster[cluster_top$cluster==index] <- index - 1
     }
   }
   cluster_top <- rbind(cluster_top,newMarkers_top[,cols])

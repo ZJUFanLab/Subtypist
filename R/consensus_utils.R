@@ -11,10 +11,13 @@
 #'   and `Score`.
 #' @param result.list A result list returned by `Subtypist_merge()`. If provided,
 #'   `object` and `result.table` are taken from this list.
-#' @param selected.resolution The resolution to assess. If `NULL`, the function
-#'   selects the resolution with the highest summarized absolute `Score`.
+#' @param selected.resolution Optional resolution to assess when
+#'   `evaluate.all = FALSE`. If `NULL`, the function uses the resolution with
+#'   the highest summarized absolute `Score`.
+#' @param evaluate.all Whether to evaluate every resolution in `result.table`.
+#'   Default is `TRUE`.
 #' @param window.size Number of neighboring resolution ranks on each side of
-#'   `selected.resolution` used for stability scoring. Default is `1`.
+#'   each evaluated resolution used for stability scoring. Default is `1`.
 #' @param prefix Prefix used by Subtypist metadata columns. Default is
 #'   `"Subtypist"`, matching columns such as `Subtypistsnn_res.0.5`.
 #' @param suffix Optional suffix appended to Subtypist metadata columns.
@@ -23,26 +26,25 @@
 #'   the standard Subtypist naming pattern.
 #' @param score.summary Function used to summarize cluster-level `Score` values
 #'   when `selected.resolution = NULL`. Default is `mean`.
-#' @param verbose Whether to print the selected resolution and resolution window.
+#' @param verbose Whether to print the selected and evaluated resolutions.
 #'
 #' @return A list with:
 #' \describe{
 #'   \item{Object}{The input Seurat object.}
 #'   \item{result.table}{The original result table with added consensus columns.}
 #'   \item{consensus.match.table}{A detailed table containing one best-matched
-#'   neighboring cluster per selected-resolution cluster and neighboring
+#'   neighboring cluster per evaluated-resolution cluster and neighboring
 #'   resolution.}
-#'   \item{selected.resolution}{The resolution assessed by the function.}
-#'   \item{resolution.window}{The full resolution window, including
-#'   `selected.resolution`.}
-#'   \item{neighbor.resolutions}{The neighboring resolutions used for scoring,
-#'   excluding `selected.resolution`.}
+#'   \item{selected.resolution}{The resolution recommended by summarized
+#'   `Score`.}
+#'   \item{evaluated.resolutions}{The resolutions assessed by the function.}
 #' }
 #' @export
 Subtypist_consensus <- function(object = NULL,
                                 result.table = NULL,
                                 result.list = NULL,
                                 selected.resolution = NULL,
+                                evaluate.all = TRUE,
                                 window.size = 1,
                                 prefix = "Subtypist",
                                 suffix = NULL,
@@ -70,7 +72,7 @@ Subtypist_consensus <- function(object = NULL,
     stop("'window.size' must be at least 1.")
   }
 
-  result.table <- tibble::as_tibble(result.table)
+  result.table <- as.data.frame(result.table)
   required.columns <- c("resolution", "merged_cluster", "Score")
   missing.columns <- setdiff(required.columns, colnames(result.table))
   if (length(missing.columns) > 0) {
@@ -82,79 +84,54 @@ Subtypist_consensus <- function(object = NULL,
 
   result.table$.subtypist_row_id <- seq_len(nrow(result.table))
   result.table$.resolution_key <- .resolution_key(result.table$resolution)
-  result.table$.cluster_key <- as.character(result.table$merged_cluster)
+  result.table$.cluster_key <- .cluster_key(result.table$merged_cluster)
 
   resolutions <- .ordered_resolutions(result.table$resolution)
   if (length(resolutions) < 2) {
     stop("At least two resolutions are required for inter-resolution stability scoring.")
   }
 
-  if (is.null(selected.resolution)) {
-    selected.resolution <- .select_resolution_by_score(
-      result.table = result.table,
-      score.summary = score.summary
-    )
-  }
-  selected.resolution <- .match_resolution(selected.resolution, resolutions)
-  selected.key <- .resolution_key(selected.resolution)
-
-  selected.index <- which(.resolution_key(resolutions) == selected.key)
-  window.index <- seq(
-    from = max(1, selected.index - window.size),
-    to = min(length(resolutions), selected.index + window.size)
+  recommended.resolution <- .select_resolution_by_score(
+    result.table = result.table,
+    score.summary = score.summary
   )
-  resolution.window <- resolutions[window.index]
-  neighbor.resolutions <- resolution.window[
-    .resolution_key(resolution.window) != selected.key
-  ]
 
-  if (length(neighbor.resolutions) == 0) {
-    stop("No neighboring resolution was found for the selected resolution.")
+  if (evaluate.all) {
+    target.resolutions <- resolutions
+  } else {
+    if (is.null(selected.resolution)) {
+      selected.resolution <- recommended.resolution
+    }
+    target.resolutions <- .match_resolution(selected.resolution, resolutions)
   }
 
-  selected.column <- .find_cluster_column(
-    object = object,
-    resolution = selected.resolution,
-    prefix = prefix,
-    suffix = suffix,
-    cluster.columns = cluster.columns
-  )
-  neighbor.columns <- stats::setNames(
-    vapply(
-      neighbor.resolutions,
-      FUN.VALUE = character(1),
-      FUN = function(resolution) {
-        .find_cluster_column(
-          object = object,
-          resolution = resolution,
-          prefix = prefix,
-          suffix = suffix,
-          cluster.columns = cluster.columns
-        )
-      }
-    ),
-    .resolution_key(neighbor.resolutions)
+  score.results <- lapply(
+    target.resolutions,
+    FUN = function(current.resolution) {
+      .score_one_resolution(
+        object = object,
+        result.table = result.table,
+        resolutions = resolutions,
+        current.resolution = current.resolution,
+        window.size = window.size,
+        prefix = prefix,
+        suffix = suffix,
+        cluster.columns = cluster.columns
+      )
+    }
   )
 
-  selected.labels <- .metadata_labels(object, selected.column)
-  selected.rows <- result.table[result.table$.resolution_key == selected.key, ]
-  n.cells <- sum(!is.na(selected.labels))
-
-  match.table <- .calculate_consensus_matches(
-    selected.rows = selected.rows,
-    selected.labels = selected.labels,
-    object = object,
-    neighbor.resolutions = neighbor.resolutions,
-    neighbor.columns = neighbor.columns,
-    n.cells = n.cells
-  )
-
-  consensus.table <- .summarize_consensus_matches(match.table)
+  match.table <- as.data.frame(dplyr::bind_rows(
+    lapply(score.results, `[[`, "match.table")
+  ))
+  consensus.table <- as.data.frame(dplyr::bind_rows(
+    lapply(score.results, `[[`, "consensus.table")
+  ))
 
   output <- .append_consensus_columns(
     result.table = result.table,
     consensus.table = consensus.table,
-    selected.resolution = selected.resolution
+    selected.resolution = recommended.resolution
   )
 
   output$.subtypist_row_id <- NULL
@@ -162,18 +139,20 @@ Subtypist_consensus <- function(object = NULL,
   output$.cluster_key <- NULL
 
   if (verbose) {
-    message("Selected resolution: ", selected.key)
-    message("Resolution window: ", paste(.resolution_key(resolution.window), collapse = ", "))
-    message("Neighbor resolutions: ", paste(.resolution_key(neighbor.resolutions), collapse = ", "))
+    message("Recommended resolution: ", .resolution_key(recommended.resolution))
+    if (evaluate.all) {
+      message("Evaluated resolutions: ", paste(.resolution_key(target.resolutions), collapse = ", "))
+    } else {
+      message("Evaluated resolution: ", paste(.resolution_key(target.resolutions), collapse = ", "))
+    }
   }
 
   consensus.result <- list(
     Object = object,
-    result.table = output,
-    consensus.match.table = match.table,
-    selected.resolution = selected.resolution,
-    resolution.window = resolution.window,
-    neighbor.resolutions = neighbor.resolutions
+    result.table = as.data.frame(output),
+    consensus.match.table = as.data.frame(match.table),
+    selected.resolution = recommended.resolution,
+    evaluated.resolutions = target.resolutions
   )
 
   class(consensus.result) <- c("Subtypist_consensus", class(consensus.result))
@@ -184,8 +163,7 @@ Subtypist_consensus <- function(object = NULL,
 print.Subtypist_consensus <- function(x, ...) {
   cat("<Subtypist_consensus>\n")
   cat("  selected.resolution: ", .resolution_key(x$selected.resolution), "\n", sep = "")
-  cat("  resolution.window: ", paste(.resolution_key(x$resolution.window), collapse = ", "), "\n", sep = "")
-  cat("  neighbor.resolutions: ", paste(.resolution_key(x$neighbor.resolutions), collapse = ", "), "\n", sep = "")
+  cat("  evaluated.resolutions: ", paste(.resolution_key(x$evaluated.resolutions), collapse = ", "), "\n", sep = "")
 
   if (!is.null(x$result.table)) {
     cat(
@@ -300,6 +278,72 @@ repr_latex.Subtypist_consensus <- function(obj, ...) {
   result.table$resolution[match(selected.key, result.table$.resolution_key)]
 }
 
+.score_one_resolution <- function(object,
+                                  result.table,
+                                  resolutions,
+                                  current.resolution,
+                                  window.size,
+                                  prefix,
+                                  suffix = NULL,
+                                  cluster.columns = NULL) {
+  current.resolution <- .match_resolution(current.resolution, resolutions)
+  current.key <- .resolution_key(current.resolution)
+  current.index <- which(.resolution_key(resolutions) == current.key)
+  window.index <- seq(
+    from = max(1, current.index - window.size),
+    to = min(length(resolutions), current.index + window.size)
+  )
+  resolution.window <- resolutions[window.index]
+  neighbor.resolutions <- resolution.window[
+    .resolution_key(resolution.window) != current.key
+  ]
+
+  if (length(neighbor.resolutions) == 0) {
+    return(list(match.table = data.frame(), consensus.table = data.frame()))
+  }
+
+  current.column <- .find_cluster_column(
+    object = object,
+    resolution = current.resolution,
+    prefix = prefix,
+    suffix = suffix,
+    cluster.columns = cluster.columns
+  )
+  neighbor.columns <- stats::setNames(
+    vapply(
+      neighbor.resolutions,
+      FUN.VALUE = character(1),
+      FUN = function(resolution) {
+        .find_cluster_column(
+          object = object,
+          resolution = resolution,
+          prefix = prefix,
+          suffix = suffix,
+          cluster.columns = cluster.columns
+        )
+      }
+    ),
+    .resolution_key(neighbor.resolutions)
+  )
+
+  current.labels <- .metadata_labels(object, current.column)
+  current.rows <- result.table[result.table$.resolution_key == current.key, ]
+  n.cells <- sum(!is.na(current.labels))
+
+  match.table <- .calculate_consensus_matches(
+    selected.rows = current.rows,
+    selected.labels = current.labels,
+    selected.column = current.column,
+    object = object,
+    neighbor.resolutions = neighbor.resolutions,
+    neighbor.columns = neighbor.columns,
+    n.cells = n.cells
+  )
+  consensus.table <- .summarize_consensus_matches(match.table)
+
+  list(match.table = match.table, consensus.table = consensus.table)
+}
+
 .find_cluster_column <- function(object,
                                  resolution,
                                  prefix,
@@ -346,11 +390,21 @@ repr_latex.Subtypist_consensus <- function(obj, ...) {
 .metadata_labels <- function(object, column) {
   labels <- object@meta.data[[column]]
   names(labels) <- rownames(object@meta.data)
-  as.character(labels)
+  .cluster_key(labels)
+}
+
+.cluster_key <- function(cluster) {
+  key <- as.character(cluster)
+  names(key) <- names(cluster)
+  numeric.key <- suppressWarnings(as.numeric(key))
+  is.whole <- !is.na(numeric.key) & abs(numeric.key - round(numeric.key)) < 1e-8
+  key[is.whole] <- as.character(as.integer(round(numeric.key[is.whole])))
+  key
 }
 
 .calculate_consensus_matches <- function(selected.rows,
                                          selected.labels,
+                                         selected.column,
                                          object,
                                          neighbor.resolutions,
                                          neighbor.columns,
@@ -380,7 +434,9 @@ repr_latex.Subtypist_consensus <- function(obj, ...) {
       match.rows[[row.index]] <- tibble::tibble(
         resolution = selected.rows$resolution[[i]],
         merged_cluster = selected.rows$merged_cluster[[i]],
+        current_column = selected.column,
         neighbor_resolution = neighbor.resolution,
+        neighbor_column = neighbor.column,
         matched_cluster = best$cluster,
         selected_cluster_size = selected.size,
         matched_cluster_size = best$matched.size,
@@ -388,17 +444,17 @@ repr_latex.Subtypist_consensus <- function(obj, ...) {
         union_size = best$union,
         matched_jaccard = best$jaccard,
         matched_preservation = best$preservation,
-        cluster_fraction = selected.size / n.cells
+        cluster_fraction = if (n.cells == 0) NA_real_ else selected.size / n.cells
       )
       row.index <- row.index + 1
     }
   }
 
   if (length(match.rows) == 0) {
-    return(tibble::tibble())
+    return(data.frame())
   }
 
-  dplyr::bind_rows(match.rows)
+  as.data.frame(dplyr::bind_rows(match.rows))
 }
 
 .best_neighbor_match <- function(selected.cells,
@@ -454,12 +510,12 @@ repr_latex.Subtypist_consensus <- function(obj, ...) {
 
 .summarize_consensus_matches <- function(match.table) {
   if (nrow(match.table) == 0) {
-    return(tibble::tibble())
+    return(data.frame())
   }
 
   match.table <- match.table
   match.table$.resolution_key <- .resolution_key(match.table$resolution)
-  match.table$.cluster_key <- as.character(match.table$merged_cluster)
+  match.table$.cluster_key <- .cluster_key(match.table$merged_cluster)
 
   split.matches <- split(
     match.table,
@@ -467,16 +523,21 @@ repr_latex.Subtypist_consensus <- function(obj, ...) {
   )
 
   summary.rows <- lapply(split.matches, function(x) {
+    jaccard <- x$matched_jaccard[!is.na(x$matched_jaccard)]
+    preservation <- x$matched_preservation[!is.na(x$matched_preservation)]
+    consensus.score <- if (length(jaccard) == 0) NA_real_ else mean(jaccard)
+    preservation.score <- if (length(preservation) == 0) NA_real_ else mean(preservation)
+
     tibble::tibble(
       .resolution_key = x$.resolution_key[[1]],
       .cluster_key = x$.cluster_key[[1]],
-      consensus_score = mean(x$matched_jaccard, na.rm = TRUE),
-      preservation_score = mean(x$matched_preservation, na.rm = TRUE),
+      consensus_score = consensus.score,
+      preservation_score = preservation.score,
       cluster_fraction = x$cluster_fraction[[1]]
     )
   })
 
-  dplyr::bind_rows(summary.rows)
+  as.data.frame(dplyr::bind_rows(summary.rows))
 }
 
 .append_consensus_columns <- function(result.table,

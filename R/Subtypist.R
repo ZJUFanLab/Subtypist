@@ -79,6 +79,17 @@ Subtypist_merge <- function(object,
       Newcolumn <- paste(prefix,"snn_res.",as.character(i.resolution),sep="")
       clusterNum <- length(unique(obj2@meta.data[[column]]))
       if(clusterNum == 1) next
+      obj2@meta.data[[Newcolumn]] <- .initialClusterLabels(obj2@meta.data[[column]])
+      Seurat::Idents(obj2) <- Newcolumn
+      cluster.size <- table(Seurat::Idents(obj2))
+      if (any(cluster.size < 3)) {
+        message(
+          "Skipping resolution ", i.resolution,
+          ": cluster(s) with fewer than 3 cells in ", Newcolumn, ": ",
+          paste(names(cluster.size)[cluster.size < 3], collapse = ", ")
+        )
+        next
+      }
       if(clustertmp[clusterNum]){
         # results[unlist(map(results$resolution, ~identical(.,last.resolution))),]$resolution <- map(results[unlist(map(results$resolution, ~identical(.,last.resolution))),]$resolution,~c(.,i.resolution))
         # clu$resolution <- i.resolution
@@ -98,7 +109,6 @@ Subtypist_merge <- function(object,
 
         if(steps == 0){
           # obj2[[Newcolumn]] <- obj2[[column]]
-          obj2@meta.data[[Newcolumn]] <- as.numeric(levels(obj2@meta.data[[column]]))[obj2@meta.data[[column]]]
           Seurat::Idents(obj2) <- Newcolumn
           Seurat::DefaultAssay(obj2) <- use.assay
           idents.all <- sort(x = unique(x = Seurat::Idents(object = obj2)))
@@ -170,6 +180,23 @@ Subtypist_merge <- function(object,
         obj2 <- .updateSeuratObj(obj=obj2,column = Newcolumn,combined.min=cluster.min,combined.max=cluster.max,clusterNum=clusterNum)
         # Update thr MarkersList
         Seurat::Idents(obj2) <- Newcolumn
+        merged.cluster.size <- table(Seurat::Idents(obj2))
+        cluster.min.key <- as.character(cluster.min)
+        cluster.min.n <- if (cluster.min.key %in% names(merged.cluster.size)) {
+          as.integer(merged.cluster.size[[cluster.min.key]])
+        } else {
+          0L
+        }
+        if (cluster.min.n < 3) {
+          message(
+            "Stopping resolution ", i.resolution,
+            ": merged cluster ", cluster.min,
+            " has fewer than 3 cells in ", Newcolumn,
+            " after merge. Group sizes: ",
+            paste(names(merged.cluster.size), as.integer(merged.cluster.size), sep = "=", collapse = ", ")
+          )
+          break
+        }
         if(clusterNum == 2){
           cat(paste0('Resolution ',i.resolution, ' produced a single cluster and no marker genes were identified; skipping this resolution.'))
           break
@@ -245,6 +272,17 @@ Subtypist_merge <- function(object,
       Newcolumn <- paste(prefix,"snn_res.",as.character(i.resolution),sep="")
       clusterNum <- length(unique(obj2@meta.data[[column]]))
       if(clusterNum == 1) next
+      obj2@meta.data[[Newcolumn]] <- .initialClusterLabels(obj2@meta.data[[column]])
+      Seurat::Idents(obj2) <- Newcolumn
+      cluster.size <- table(Seurat::Idents(obj2))
+      if (any(cluster.size < 3)) {
+        message(
+          "Skipping resolution ", i.resolution,
+          ": cluster(s) with fewer than 3 cells in ", Newcolumn, ": ",
+          paste(names(cluster.size)[cluster.size < 3], collapse = ", ")
+        )
+        next
+      }
       if(clustertmp[clusterNum]){
         last.resolution = c(last.resolution,i.resolution)
         #next # The number of clusters corresponding to this resolution has already appeared, omitting this merging process
@@ -259,7 +297,6 @@ Subtypist_merge <- function(object,
       while(TRUE){
         if(steps == 0){
           # obj2[[Newcolumn]] <- obj2[[column]]
-          obj2@meta.data[[Newcolumn]] <- as.numeric(levels(obj2@meta.data[[column]]))[obj2@meta.data[[column]]]
           Seurat::Idents(obj2) <- Newcolumn
           Seurat::DefaultAssay(obj2) <- use.assay
           idents.all <- sort(x = unique(x = Seurat::Idents(object = obj2)))
@@ -344,6 +381,23 @@ Subtypist_merge <- function(object,
         obj_join_layers[[Newcolumn]] <- obj2[[Newcolumn]]
         Seurat::Idents(obj_join_layers) <- Newcolumn
         Seurat::Idents(obj2) <- Newcolumn
+        merged.cluster.size <- table(Seurat::Idents(obj2))
+        cluster.min.key <- as.character(cluster.min)
+        cluster.min.n <- if (cluster.min.key %in% names(merged.cluster.size)) {
+          as.integer(merged.cluster.size[[cluster.min.key]])
+        } else {
+          0L
+        }
+        if (cluster.min.n < 3) {
+          message(
+            "Stopping resolution ", i.resolution,
+            ": merged cluster ", cluster.min,
+            " has fewer than 3 cells in ", Newcolumn,
+            " after merge. Group sizes: ",
+            paste(names(merged.cluster.size), as.integer(merged.cluster.size), sep = "=", collapse = ", ")
+          )
+          break
+        }
         if(accelerated == TRUE){
           obj_join_layers <- SeuratObject::JoinLayers(obj2)
           all.markers.RNA <-  presto::wilcoxauc(X = obj_join_layers,group.by = column,verbose = FALSE)

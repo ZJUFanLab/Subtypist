@@ -1,7 +1,7 @@
 #' Subtypist merge with post-hoc plateau diagnostics
 #'
 #' This diagnostic wrapper records merge-step score trajectories for each
-#' resolution. By default it keeps the original Subtypist termination rule.
+#' resolution. By default it keeps the standard Subtypist termination rule.
 #' Users can optionally set \code{termination.mode = "plateau"} to stop a
 #' resolution when the selected score metric enters a plateau, or
 #' \code{termination.mode = "elbow"} to use a two-stage elbow plus optional
@@ -26,8 +26,8 @@
 #' @param verbose Whether to print progress.
 #' @param regulation Marker regulation direction: up, down, or both.
 #' @param top_k Number of marker genes used to summarize cluster scores.
-#' @param termination.mode Termination rule for each resolution. \code{"original"}
-#'   keeps the original Subtypist rule; \code{"plateau"} uses the plateau rule as
+#' @param termination.mode Termination rule for each resolution. \code{"default"}
+#'   keeps the standard Subtypist rule; \code{"plateau"} uses the plateau rule as
 #'   an alternative stopping criterion; \code{"elbow"} uses a segmented-regression
 #'   elbow rule with optional subsampling stability checks.
 #' @param plateau.metric Score metric used when \code{termination.mode =
@@ -74,7 +74,7 @@ Subtypist_merge_diagnostics <- function(object,
                                         verbose = FALSE,
                                         regulation = c("up", "down", "both"),
                                         top_k = 3,
-                                        termination.mode = c("original", "plateau", "elbow"),
+                                        termination.mode = c("default", "plateau", "elbow", "original"),
                                         plateau.metric = c("total_score", "mean_score"),
                                         plateau.change = c("absolute", "relative"),
                                         plateau.eps = 0.01,
@@ -92,7 +92,10 @@ Subtypist_merge_diagnostics <- function(object,
                                         elbow.subsample.reps = 10,
                                         elbow.subsample.seed = 1L) {
   regulation <- match.arg(regulation)
-  termination.mode <- match.arg(termination.mode, choices = c("original", "plateau", "elbow"))
+  termination.mode <- match.arg(termination.mode, choices = c("default", "plateau", "elbow", "original"))
+  if (identical(termination.mode, "original")) {
+    termination.mode <- "default"
+  }
   plateau.metric <- match.arg(plateau.metric)
   plateau.change <- match.arg(plateau.change)
   elbow.metric <- match.arg(elbow.metric)
@@ -160,17 +163,19 @@ Subtypist_merge_diagnostics <- function(object,
       )
     }
 
-    Newcolumn <- paste(prefix, "snn_res.", as.character(i.resolution), sep = "")
+    Newcolumn <- paste(prefix, "_snn_res.", as.character(i.resolution), sep = "")
     clusterNum <- length(unique(obj2@meta.data[[column]]))
     initial.cluster.num <- clusterNum
 
     if (clusterNum == 1) next
-    cluster_size <- table(obj2@meta.data[[column]])
-    if (any(cluster_size < 3)) {
+    obj2@meta.data[[Newcolumn]] <- .initialClusterLabels(obj2@meta.data[[column]])
+    Seurat::Idents(obj2) <- Newcolumn
+    cluster.size <- table(Seurat::Idents(obj2))
+    if (any(cluster.size < 3)) {
       message(
         "Skipping resolution ", i.resolution,
-        ": cluster(s) with fewer than 3 cells: ",
-        paste(names(cluster_size)[cluster_size < 3], collapse = ", ")
+        ": cluster(s) with fewer than 3 cells in ", Newcolumn, ": ",
+        paste(names(cluster.size)[cluster.size < 3], collapse = ", ")
       )
       next
     }
@@ -197,7 +202,6 @@ Subtypist_merge_diagnostics <- function(object,
 
     while (TRUE) {
       if (steps == 0) {
-        obj2@meta.data[[Newcolumn]] <- as.numeric(levels(obj2@meta.data[[column]]))[obj2@meta.data[[column]]]
         Seurat::Idents(obj2) <- Newcolumn
         Seurat::DefaultAssay(obj2) <- use.assay
 
@@ -264,9 +268,9 @@ Subtypist_merge_diagnostics <- function(object,
       }
 
       max.col <- apply(M, 2, max)
-      if (termination.mode == "original" &&
+      if (termination.mode == "default" &&
           sum(tmp) != clusterNum && sum(tmp) != 0 && min(max.col[tmp]) >= max(max.col[!tmp])) {
-        stop.reason <- "original_nonspecific_boundary"
+        stop.reason <- "default_nonspecific_boundary"
         break
       }
 
@@ -284,7 +288,7 @@ Subtypist_merge_diagnostics <- function(object,
         if ((purrr::map(mergedNodes, .f = length)[[Index.min]] > merged.max && tmp[[Index.min]] == FALSE) ||
             (purrr::map(mergedNodes, .f = length)[[Index.max]] > merged.max && tmp[Index.min] == FALSE) ||
             merged.max > length(unique(obj2@meta.data[[column]])) / 2) {
-          stop.reason <- "original_merge_limit"
+          stop.reason <- "default_merge_limit"
           break
         }
       }
@@ -300,6 +304,24 @@ Subtypist_merge_diagnostics <- function(object,
         clusterNum = clusterNum
       )
       Seurat::Idents(obj2) <- Newcolumn
+      merged.cluster.size <- table(Seurat::Idents(obj2))
+      cluster.min.key <- as.character(cluster.min)
+      cluster.min.n <- if (cluster.min.key %in% names(merged.cluster.size)) {
+        as.integer(merged.cluster.size[[cluster.min.key]])
+      } else {
+        0L
+      }
+      if (cluster.min.n < 3) {
+        stop.reason <- "merged_cluster_lt3"
+        message(
+          "Stopping resolution ", i.resolution,
+          ": merged cluster ", cluster.min,
+          " has fewer than 3 cells in ", Newcolumn,
+          " after merge. Group sizes: ",
+          paste(names(merged.cluster.size), as.integer(merged.cluster.size), sep = "=", collapse = ", ")
+        )
+        break
+      }
 
       if (clusterNum == 2) {
         stop.reason <- "single_cluster_after_merge"
@@ -485,7 +507,7 @@ Subtypist_merge_diagnostics <- function(object,
       if (length(idx) > 0) step.history$stop_reason[idx[length(idx)]] <- stop.reason
     }
 
-    # Keep the final result table aligned with the original Subtypist_merge()
+    # Keep the final result table aligned with the default Subtypist_merge()
     # implementation. Plateau-specific finite handling is applied only to
     # step.history diagnostics, not to the canonical result.table.
     clu <- .setClulterInf(resMarker, mergedNodes, i.resolution, regulation = regulation, top_k = top_k)
@@ -594,8 +616,8 @@ Subtypist_call_plateau <- function(step.history,
         resolution = res,
         metric = metric,
         plateau_step = plateau.step,
-        original_stop_step = .diagnostic_get_scalar(final.row, "step", NA_real_),
-        original_stop_reason = .diagnostic_get_scalar(final.row, "stop_reason", NA_character_),
+        default_stop_step = .diagnostic_get_scalar(final.row, "step", NA_real_),
+        default_stop_reason = .diagnostic_get_scalar(final.row, "stop_reason", NA_character_),
         final_cluster_num = .diagnostic_get_scalar(final.row, "cluster_num", NA_real_),
         final_total_score = .diagnostic_get_scalar(final.row, "total_score", NA_real_),
         final_mean_score = .diagnostic_get_scalar(final.row, "mean_score", NA_real_),
@@ -891,7 +913,7 @@ Subtypist_call_plateau <- function(step.history,
       sub.obj <- Seurat::PrepSCTFindMarkers(object = sub.obj, verbose = FALSE)
     }
     stability.prefix <- paste0("elbow_stability_", b, "_")
-    stability.col <- paste(stability.prefix, "snn_res.", as.character(resolution), sep = "")
+    stability.col <- paste(stability.prefix, "_snn_res.", as.character(resolution), sep = "")
     result <- tryCatch(Subtypist_merge(
       object = sub.obj,
       min.resolution = resolution,
@@ -1112,6 +1134,32 @@ Subtypist_call_plateau <- function(step.history,
   x
 }
 
+.diagnostic_findmarkers_context <- function(obj, ident.1, context, assay = NULL, ...) {
+  ident_counts <- table(Seurat::Idents(obj))
+  ident_key <- as.character(ident.1)
+  ident_n <- if (ident_key %in% names(ident_counts)) as.integer(ident_counts[[ident_key]]) else 0L
+
+  tryCatch(
+    {
+      if (is.null(assay)) {
+        Seurat::FindMarkers(obj, ident.1 = ident.1, ...)
+      } else {
+        Seurat::FindMarkers(obj, ident.1 = ident.1, assay = assay, ...)
+      }
+    },
+    error = function(e) {
+      stop(
+        context,
+        " FindMarkers failed for ident.1=", ident_key,
+        " (n=", ident_n, "). Group sizes: ",
+        paste(names(ident_counts), as.integer(ident_counts), sep = "=", collapse = ", "),
+        ". Original error: ", conditionMessage(e),
+        call. = FALSE
+      )
+    }
+  )
+}
+
 .diagnostic_find_initial_markers <- function(obj,
                                              column,
                                              use.assay,
@@ -1146,18 +1194,20 @@ Subtypist_call_plateau <- function(step.history,
     all.markers <- data.frame()
     for (ident in idents.all) {
       if (seurat.major == "4") {
-        i.markers <- Seurat::FindMarkers(
+        i.markers <- .diagnostic_findmarkers_context(
           obj_for_markers,
           ident.1 = ident,
+          context = paste0("diagnostic initial markers; column=", column),
           only.pos = only.pos,
           min.pct = 0.1,
           verbose = FALSE,
           logfc.threshold = 0.1
         )
       } else {
-        i.markers <- Seurat::FindMarkers(
+        i.markers <- .diagnostic_findmarkers_context(
           obj_for_markers,
           ident.1 = ident,
+          context = paste0("diagnostic initial markers; column=", column),
           only.pos = only.pos,
           assay = use.assay,
           min.pct = 0.1,
@@ -1239,18 +1289,20 @@ Subtypist_call_plateau <- function(step.history,
   }
   Seurat::Idents(obj_for_markers) <- Newcolumn
   if (seurat.major == "4") {
-    newCluster_marker <- Seurat::FindMarkers(
+    newCluster_marker <- .diagnostic_findmarkers_context(
       obj_for_markers,
       ident.1 = cluster.min,
+      context = paste0("diagnostic merged markers; column=", column, "; Newcolumn=", Newcolumn),
       ident.2 = NULL,
       only.pos = only.pos,
       min.pct = 0,
       verbose = FALSE
     )
   } else {
-    newCluster_marker <- Seurat::FindMarkers(
+    newCluster_marker <- .diagnostic_findmarkers_context(
       obj_for_markers,
       ident.1 = cluster.min,
+      context = paste0("diagnostic merged markers; column=", column, "; Newcolumn=", Newcolumn),
       ident.2 = NULL,
       only.pos = only.pos,
       assay = use.assay,

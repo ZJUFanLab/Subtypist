@@ -28,11 +28,11 @@
 #'
 #' @examples Subtypist_Dimplot(object = res[[1]], result.table = res[[2]], resolution = c(0.1), show = "molecular_phenotype")
 Subtypist_Dimplot <- function(object=NULL,result.table=NULL,results.list=NULL,
-                              reduction=NULL,resolution=NULL,show=NULL,
-                              label = FALSE,label.size = 4,label.color = 'black',
-                              label.box = FALSE,repel = FALSE,cells.highlight = NULL,
-                              cols.highlight = '#DE2D26',sizes.highlight = 1,na.value = 'grey50',
-                              ncol = NULL,combine = TRUE,raster = NULL,raster.dpi = c(512, 512),prefix='Subtypist',suffix=NULL,select_index= NULL,meta.prefix='phenotypic_molecules_'){
+                                reduction=NULL,resolution=NULL,show=NULL,
+                                label = FALSE,label.size = 4,label.color = 'black',
+                                label.box = FALSE,repel = FALSE,cells.highlight = NULL,
+                                cols.highlight = '#DE2D26',sizes.highlight = 1,na.value = 'grey50',
+                                ncol = NULL,combine = TRUE,raster = NULL,raster.dpi = c(512, 512),prefix='Subtypist',suffix=NULL,select_index= NULL,meta.prefix='phenotypic_molecules_'){
   if(!is.null(results.list)){
     object <- results.list[['Object']]
     result.table <- results.list[['result.table']]
