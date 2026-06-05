@@ -28,7 +28,8 @@
 #' @param verbose Whether to print the selected and evaluated resolutions.
 #'
 #' @return A data.frame containing the Subtypist result table with added
-#'   consensus columns.
+#'   consensus columns, including `neighbor_clusters`, which reports the
+#'   matched cluster at each neighboring resolution.
 #' @export
 Subtypist_consensus <- function(object = NULL,
                                 result.table = NULL,
@@ -458,6 +459,7 @@ Subtypist_consensus <- function(object = NULL,
     data.frame(
       .resolution_key = x$.resolution_key[[1]],
       .cluster_key = x$.cluster_key[[1]],
+      neighbor_clusters = .format_neighbor_clusters(x),
       consensus_score = consensus.score,
       preservation_score = preservation.score,
       cluster_fraction = x$cluster_fraction[[1]],
@@ -466,6 +468,24 @@ Subtypist_consensus <- function(object = NULL,
   })
 
   .bind_consensus_data_frames(summary.rows)
+}
+
+.format_neighbor_clusters <- function(match.rows) {
+  neighbor.resolution <- .resolution_key(match.rows$neighbor_resolution)
+  matched.cluster <- .cluster_key(match.rows$matched_cluster)
+  matched.cluster[is.na(matched.cluster)] <- "NA"
+
+  resolution.numeric <- suppressWarnings(as.numeric(neighbor.resolution))
+  if (all(!is.na(resolution.numeric))) {
+    order.index <- order(resolution.numeric)
+  } else {
+    order.index <- order(neighbor.resolution)
+  }
+
+  paste(
+    paste0(neighbor.resolution[order.index], ": ", matched.cluster[order.index]),
+    collapse = "; "
+  )
 }
 
 .bind_consensus_data_frames <- function(rows) {
@@ -491,12 +511,13 @@ Subtypist_consensus <- function(object = NULL,
   output$selected_resolution <- selected.resolution
   output$is_selected_resolution <- output$.resolution_key == selected.key
 
-  metric.columns <- c(
+  consensus.columns <- c(
+    "neighbor_clusters",
     "consensus_score",
     "preservation_score",
     "cluster_fraction"
   )
-  for (column in metric.columns) {
+  for (column in consensus.columns) {
     output[[column]] <- NA
   }
 
@@ -507,7 +528,7 @@ Subtypist_consensus <- function(object = NULL,
           output$.cluster_key == consensus.table$.cluster_key[[i]]
       )
       if (length(row.id) == 1) {
-        for (column in metric.columns) {
+        for (column in consensus.columns) {
           output[[column]][row.id] <- consensus.table[[column]][[i]]
         }
       }
