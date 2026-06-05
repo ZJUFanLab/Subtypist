@@ -254,7 +254,7 @@
   colnames(clu) <- c("resolution", "merged_cluster", "initial_cluster", "phenotypic_molecules", "Score")
   return(clu)
 }
-#' Title Calculation of specificity score
+#' Calculate marker specificity scores
 #'
 #' @param markers_top marker genes per cluster.
 #' @param min.pct.1 Minimum percent of cells expressing the gene in the cluster.

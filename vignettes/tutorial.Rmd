@@ -47,9 +47,9 @@ Identification of novel cell subtypes is critically crucial in revealing the pat
 # Object: a Loading or subsetting specific cell type Seurat object
 # min.resolution: the minimum value of resolution
 # max.resolution: the maxium value of resolution
-# use.assay: Name of assay to use
+# marker_assay: Name of assay used for marker detection
 # cluster.assay: Name of the assay in the Seurat object to use for clustering
-> result <- Subtypist_merge(object=Seu,min.resolution=0.3,max.resolution=1.5,by=0.1,use.assay="RNA",cluster_assay = "RNA")
+> result <- Subtypist_merge(object=Seu,min.resolution=0.3,max.resolution=1.5,by=0.1,marker_assay="RNA",cluster_assay = "RNA")
 
 # Show results
 > print(result)
@@ -109,4 +109,3 @@ $result.table
 # About
 
 Subtypist was developed by Yue Yao. Should you have any questions, please contact Yue Yao at [yuey@zju.edu.cn](mailto:yueyo@zju.edu.cn)
-

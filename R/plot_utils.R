@@ -1,4 +1,4 @@
-#' Title Dimensional Plot for Subtypist Results
+#' Dimensional plot for Subtypist results
 #'
 #' @param object A Seurat object.
 #' @param result.table A data frame containing annotation results.
@@ -59,7 +59,7 @@ Subtypist_Dimplot <- function(object=NULL,result.table=NULL,results.list=NULL,
   if(is.null(result.table)){
     if(show == "Result_clusterIndex"){column.name <- unlist(lapply(X=resolution,FUN=paste0("Combined_snn_res.",x)))}
     if(show =="initial.clusterIndex"){column.name <- unlist(lapply(X=resolution,FUN=paste0("initial_cluster_",x)))}
-    if(show =="molecular_phenotype"){column.name <- unlist(lapply(X=resolution,FUN=paste0(prefix,'snn_res.',x)))}
+    if(show =="molecular_phenotype"){column.name <- unlist(lapply(X=resolution,FUN=function(x){.subtypist_cluster_column(prefix,x,suffix)}))}
     for(index in 1:length(column.name)){
       if(!column.name[index] %in% colnames(object@meta.data)){
         cat("The resoluton of",x,"has no result.")
@@ -68,7 +68,7 @@ Subtypist_Dimplot <- function(object=NULL,result.table=NULL,results.list=NULL,
     }
   }
 
-  Combined_Comlumn.name <- unlist(lapply(X=resolution,FUN=function(x){paste0(prefix,'snn_res.',x)}))
+  Combined_Comlumn.name <- unlist(lapply(X=resolution,FUN=function(x){.subtypist_cluster_column(prefix,x,suffix)}))
   for(index in 1:length(Combined_Comlumn.name)){
     if (!Combined_Comlumn.name[index] %in% colnames(object@meta.data)){
       cat("There is no result of the resolution of",Combined_Comlumn.name[index],"in this object!")

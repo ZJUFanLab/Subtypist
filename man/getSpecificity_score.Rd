@@ -2,7 +2,7 @@
 % Please edit documentation in R/clustering_utils.R
 \name{getSpecificity_score}
 \alias{getSpecificity_score}
-\title{Title Calculation of specificity score}
+\title{Calculate marker specificity scores}
 \usage{
 getSpecificity_score(
   markers_top,
@@ -24,5 +24,5 @@ getSpecificity_score(
 return a specificity score
 }
 \description{
-Title Calculation of specificity score
+Calculate marker specificity scores.
 }
