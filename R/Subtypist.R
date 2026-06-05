@@ -1,4 +1,4 @@
-#' Reference-free identification of cell subtypes
+#' Data-driven identification of cell subtypes
 #'
 #' Subtypist evaluates clustering results across multiple resolutions, merges
 #' clusters with insufficient marker specificity, and reports subtype-associated
