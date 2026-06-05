@@ -27,16 +27,8 @@
 #'   when `selected.resolution = NULL`. Default is `mean`.
 #' @param verbose Whether to print the selected and evaluated resolutions.
 #'
-#' @return A list with:
-#' \describe{
-#'   \item{result.table}{The original result table with added consensus columns.}
-#'   \item{consensus.match.table}{A detailed table containing one best-matched
-#'   neighboring cluster per evaluated-resolution cluster and neighboring
-#'   resolution.}
-#'   \item{selected.resolution}{The resolution recommended by summarized
-#'   `Score`.}
-#'   \item{evaluated.resolutions}{The resolutions assessed by the function.}
-#' }
+#' @return A data.frame containing the Subtypist result table with added
+#'   consensus columns.
 #' @export
 Subtypist_consensus <- function(object = NULL,
                                 result.table = NULL,
@@ -61,7 +53,7 @@ Subtypist_consensus <- function(object = NULL,
     stop("Please provide a Subtypist result.table or a Subtypist result.list.")
   }
   if (!is.data.frame(result.table)) {
-    stop("'result.table' must be a data.frame or tibble.")
+    stop("'result.table' must be a data.frame.")
   }
   if (is.null(object@meta.data) || nrow(object@meta.data) == 0) {
     stop("'object@meta.data' is empty.")
@@ -119,12 +111,12 @@ Subtypist_consensus <- function(object = NULL,
     }
   )
 
-  match.table <- as.data.frame(dplyr::bind_rows(
+  match.table <- .bind_consensus_data_frames(
     lapply(score.results, `[[`, "match.table")
-  ))
-  consensus.table <- as.data.frame(dplyr::bind_rows(
+  )
+  consensus.table <- .bind_consensus_data_frames(
     lapply(score.results, `[[`, "consensus.table")
-  ))
+  )
 
   output <- .append_consensus_columns(
     result.table = result.table,
@@ -145,14 +137,12 @@ Subtypist_consensus <- function(object = NULL,
     }
   }
 
-  consensus.result <- list(
-    result.table = as.data.frame(output),
-    consensus.match.table = as.data.frame(match.table),
-    selected.resolution = recommended.resolution,
-    evaluated.resolutions = target.resolutions
-  )
+  output <- as.data.frame(output, stringsAsFactors = FALSE)
+  attr(output, "consensus.match.table") <- as.data.frame(match.table, stringsAsFactors = FALSE)
+  attr(output, "selected.resolution") <- recommended.resolution
+  attr(output, "evaluated.resolutions") <- target.resolutions
 
-  return(consensus.result)
+  return(output)
 }
 
 .ordered_resolutions <- function(resolution) {
@@ -366,7 +356,7 @@ Subtypist_consensus <- function(object = NULL,
         neighbor.clusters = neighbor.clusters
       )
 
-      match.rows[[row.index]] <- tibble::tibble(
+      match.rows[[row.index]] <- data.frame(
         resolution = selected.rows$resolution[[i]],
         merged_cluster = selected.rows$merged_cluster[[i]],
         current_column = selected.column,
@@ -379,7 +369,8 @@ Subtypist_consensus <- function(object = NULL,
         union_size = best$union,
         matched_jaccard = best$jaccard,
         matched_preservation = best$preservation,
-        cluster_fraction = if (n.cells == 0) NA_real_ else selected.size / n.cells
+        cluster_fraction = if (n.cells == 0) NA_real_ else selected.size / n.cells,
+        stringsAsFactors = FALSE
       )
       row.index <- row.index + 1
     }
@@ -389,7 +380,7 @@ Subtypist_consensus <- function(object = NULL,
     return(data.frame())
   }
 
-  as.data.frame(dplyr::bind_rows(match.rows))
+  .bind_consensus_data_frames(match.rows)
 }
 
 .best_neighbor_match <- function(selected.cells,
@@ -415,17 +406,18 @@ Subtypist_consensus <- function(object = NULL,
     jaccard <- if (union.size == 0) NA_real_ else intersection.size / union.size
     preservation <- intersection.size / length(selected.cells)
 
-    tibble::tibble(
+    data.frame(
       cluster = neighbor.cluster,
       matched.size = length(neighbor.cells),
       intersection = intersection.size,
       union = union.size,
       jaccard = jaccard,
-      preservation = preservation
+      preservation = preservation,
+      stringsAsFactors = FALSE
     )
   })
 
-  candidates <- dplyr::bind_rows(candidate.rows)
+  candidates <- .bind_consensus_data_frames(candidate.rows)
   candidates <- candidates[order(
     -candidates$jaccard,
     -candidates$preservation,
@@ -463,16 +455,31 @@ Subtypist_consensus <- function(object = NULL,
     consensus.score <- if (length(jaccard) == 0) NA_real_ else mean(jaccard)
     preservation.score <- if (length(preservation) == 0) NA_real_ else mean(preservation)
 
-    tibble::tibble(
+    data.frame(
       .resolution_key = x$.resolution_key[[1]],
       .cluster_key = x$.cluster_key[[1]],
       consensus_score = consensus.score,
       preservation_score = preservation.score,
-      cluster_fraction = x$cluster_fraction[[1]]
+      cluster_fraction = x$cluster_fraction[[1]],
+      stringsAsFactors = FALSE
     )
   })
 
-  as.data.frame(dplyr::bind_rows(summary.rows))
+  .bind_consensus_data_frames(summary.rows)
+}
+
+.bind_consensus_data_frames <- function(rows) {
+  rows <- rows[vapply(rows, function(x) {
+    is.data.frame(x) && nrow(x) > 0
+  }, logical(1))]
+
+  if (length(rows) == 0) {
+    return(data.frame())
+  }
+
+  output <- do.call(rbind, rows)
+  rownames(output) <- NULL
+  as.data.frame(output, stringsAsFactors = FALSE)
 }
 
 .append_consensus_columns <- function(result.table,
